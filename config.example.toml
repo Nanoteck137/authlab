@@ -1,0 +1,7 @@
+# run_migrations = true
+listen_addr = ":3000"
+data_dir = "/Some/Dir"
+library = "/Some/Dir" # Library Path to the music
+username = "admin" # Username of the first user
+initial_password = "admin" # Initial Password for user (should change after first login)
+jwt_secret = "" # Example: openssl rand -base64 32

@@ -1,0 +1,199 @@
+{
+  "version": 1,
+  "structures": [
+    {
+      "name": "ApiToken",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "omitEmpty": false
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "omitEmpty": false
+        }
+      ]
+    },
+    {
+      "name": "AuthInitiate",
+      "fields": [
+        {
+          "name": "sessionId",
+          "type": "string",
+          "omitEmpty": false
+        },
+        {
+          "name": "authUrl",
+          "type": "string",
+          "omitEmpty": false
+        }
+      ]
+    },
+    {
+      "name": "AuthLoginWithCode",
+      "fields": [
+        {
+          "name": "token",
+          "type": "string",
+          "omitEmpty": false
+        }
+      ]
+    },
+    {
+      "name": "AuthLoginWithCodeBody",
+      "fields": [
+        {
+          "name": "code",
+          "type": "string",
+          "omitEmpty": false
+        },
+        {
+          "name": "state",
+          "type": "string",
+          "omitEmpty": false
+        }
+      ]
+    },
+    {
+      "name": "CreateApiToken",
+      "fields": [
+        {
+          "name": "token",
+          "type": "string",
+          "omitEmpty": false
+        }
+      ]
+    },
+    {
+      "name": "CreateApiTokenBody",
+      "fields": [
+        {
+          "name": "name",
+          "type": "string",
+          "omitEmpty": false
+        }
+      ]
+    },
+    {
+      "name": "GetAllApiTokens",
+      "fields": [
+        {
+          "name": "tokens",
+          "type": "[]ApiToken",
+          "omitEmpty": false
+        }
+      ]
+    },
+    {
+      "name": "GetMe",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "omitEmpty": false
+        },
+        {
+          "name": "username",
+          "type": "string",
+          "omitEmpty": false
+        },
+        {
+          "name": "role",
+          "type": "string",
+          "omitEmpty": false
+        },
+        {
+          "name": "displayName",
+          "type": "string",
+          "omitEmpty": false
+        },
+        {
+          "name": "quickPlaylist",
+          "type": "*string",
+          "omitEmpty": false
+        }
+      ]
+    },
+    {
+      "name": "GetSystemInfo",
+      "fields": [
+        {
+          "name": "version",
+          "type": "string",
+          "omitEmpty": false
+        }
+      ]
+    },
+    {
+      "name": "UpdateUserSettingsBody",
+      "fields": [
+        {
+          "name": "displayName",
+          "type": "*string",
+          "omitEmpty": true
+        }
+      ]
+    }
+  ],
+  "endpoints": [
+    {
+      "type": "api",
+      "name": "AuthInitiate",
+      "method": "POST",
+      "path": "/api/v1/auth/initiate",
+      "response": "AuthInitiate"
+    },
+    {
+      "type": "api",
+      "name": "AuthLoginWithCode",
+      "method": "POST",
+      "path": "/api/v1/auth/loginWithCode",
+      "response": "AuthLoginWithCode",
+      "body": "AuthLoginWithCodeBody"
+    },
+    {
+      "type": "api",
+      "name": "CreateApiToken",
+      "method": "POST",
+      "path": "/api/v1/user/apitoken",
+      "response": "CreateApiToken",
+      "body": "CreateApiTokenBody"
+    },
+    {
+      "type": "api",
+      "name": "DeleteApiToken",
+      "method": "DELETE",
+      "path": "/api/v1/user/apitoken/:id"
+    },
+    {
+      "type": "api",
+      "name": "GetAllApiTokens",
+      "method": "GET",
+      "path": "/api/v1/user/apitoken",
+      "response": "GetAllApiTokens"
+    },
+    {
+      "type": "api",
+      "name": "GetMe",
+      "method": "GET",
+      "path": "/api/v1/auth/me",
+      "response": "GetMe"
+    },
+    {
+      "type": "api",
+      "name": "GetSystemInfo",
+      "method": "GET",
+      "path": "/api/v1/system/info",
+      "response": "GetSystemInfo"
+    },
+    {
+      "type": "api",
+      "name": "UpdateUserSettings",
+      "method": "PATCH",
+      "path": "/api/v1/user/settings",
+      "body": "UpdateUserSettingsBody"
+    }
+  ]
+}
