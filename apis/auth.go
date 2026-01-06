@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/kr/pretty"
@@ -16,6 +17,11 @@ import (
 	"github.com/nanoteck137/validate"
 	"golang.org/x/oauth2"
 )
+
+// TODO(patrik):
+//  - Callback: Set the code on the session object
+//  - Callback: Render HTML pages with success, error
+//  - Create a poll mechanism for the frontend client to get the code
 
 type Signup struct {
 	Id       string `json:"id"`
@@ -116,7 +122,75 @@ type AuthLoginWithCodeBody struct {
 	State string `json:"state"`
 }
 
+type AuthSessionType string
+
+const (
+	AuthSessionTypeNormal    AuthSessionType = "normal"
+	AuthSessionTypeQuickCode AuthSessionType = "quick-code"
+)
+
+type AuthSessionStatus string
+
+const (
+	AuthSessionStatusPending   AuthSessionStatus = "pending"
+	AuthSessionStatusCompleted AuthSessionStatus = "completed"
+	AuthSessionStatusExpired   AuthSessionStatus = "expired"
+	AuthSessionStatusFailed    AuthSessionStatus = "failed"
+)
+
+type AuthSession struct {
+	Id      string
+	Type    AuthSessionType
+	Status  AuthSessionStatus
+	Expires time.Time
+	Delete  time.Time
+}
+
+type AuthService struct {
+	Sessions map[string]*AuthSession
+}
+
+func (a *AuthService) CreateNormalSession() *AuthSession {
+	id := utils.CreateId()
+
+	t := time.Now()
+	session := &AuthSession{
+		Id:      id,
+		Type:    AuthSessionTypeNormal,
+		Status:  AuthSessionStatusPending,
+		Expires: t.Add(5 * time.Minute),
+		Delete: t.Add(1 * time.Hour),
+	}
+
+	a.Sessions[id] = session
+
+	return session
+}
+
+func (a *AuthService) RemoveUnusedEntries() {
+	now := time.Now()
+	for k, session := range a.Sessions {
+		if session.Delete.After(now) {
+			delete(a.Sessions, k)
+		}
+	}
+}
+
+func (a *AuthService) RunRoutine() {
+    ticker := time.NewTicker(30 * time.Minute)
+    for range ticker.C {
+		a.RemoveUnusedEntries()
+    }
+}
+
+var authService = &AuthService{
+	Sessions: make(map[string]*AuthSession),
+}
+
 func InstallAuthHandlers(app core.App, group pyrin.Group) {
+	if app != nil {
+		go authService.RunRoutine()
+	}
 
 	group.Register(
 		pyrin.ApiHandler{
@@ -125,41 +199,28 @@ func InstallAuthHandlers(app core.App, group pyrin.Group) {
 			Path:         "/auth/initiate",
 			ResponseType: AuthInitiate{},
 			HandlerFunc: func(c pyrin.Context) (any, error) {
-				clientId := "641005a7-9fe0-4fe2-83ae-81cd76c2ae5d"
-				clientSecret := "YE45c5aU2LvwJtEzEt0eaBS0Oot7HEFg"
-				issuerUrl := "https://pocketid.nanoteck137.net"
-				redirectUrl := "http://10.28.28.6:5173/auth/callback"
-
 				ctx := context.TODO()
 
-				provider, err := oidc.NewProvider(ctx, issuerUrl)
+				config := app.Config()
+
+				provider, err := oidc.NewProvider(ctx, config.OdicIssuerUrl)
 				if err != nil {
 					return nil, fmt.Errorf("Failed to create OIDC provider: %w", err)
 				}
 
-				// pretty.Println(provider)
-
 				oauth2Config := &oauth2.Config{
-					ClientID:     clientId,
-					ClientSecret: clientSecret,
-					RedirectURL:  redirectUrl,
+					ClientID:     config.OdicClientId,
+					ClientSecret: config.OdicClientSecret,
+					RedirectURL:  config.OdicRedirectUrl,
 					Endpoint:     provider.Endpoint(),
 					Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
 				}
 
-				verifier := provider.Verifier(&oidc.Config{ClientID: clientId})
+				session := authService.CreateNormalSession()
+				authURL := oauth2Config.AuthCodeURL(session.Id)
 
-				_ = oauth2Config
-				_ = verifier
-
-				state := utils.CreateId()
-				authURL := oauth2Config.AuthCodeURL(state)
-
-				// verifier.Verify()
-
-				fmt.Printf("authURL: %v\n", authURL)
 				return AuthInitiate{
-					SessionId: utils.CreateId(),
+					SessionId: session.Id,
 					AuthUrl:   authURL,
 				}, nil
 			},
@@ -177,30 +238,24 @@ func InstallAuthHandlers(app core.App, group pyrin.Group) {
 					return nil, err
 				}
 
-				clientId := "641005a7-9fe0-4fe2-83ae-81cd76c2ae5d"
-				clientSecret := "YE45c5aU2LvwJtEzEt0eaBS0Oot7HEFg"
-				issuerUrl := "https://pocketid.nanoteck137.net"
-				redirectUrl := "http://10.28.28.6:5173/auth/callback"
-
 				ctx := context.TODO()
 
-				provider, err := oidc.NewProvider(ctx, issuerUrl)
+				config := app.Config()
+
+				provider, err := oidc.NewProvider(ctx, config.OdicIssuerUrl)
 				if err != nil {
 					return nil, fmt.Errorf("Failed to create OIDC provider: %w", err)
 				}
 
-				// pretty.Println(provider)
-
 				oauth2Config := &oauth2.Config{
-					ClientID:     clientId,
-					ClientSecret: clientSecret,
-					RedirectURL:  redirectUrl,
+					ClientID:     config.OdicClientId,
+					ClientSecret: config.OdicClientSecret,
+					RedirectURL:  config.OdicRedirectUrl,
 					Endpoint:     provider.Endpoint(),
 					Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
 				}
 
-				verifier := provider.Verifier(&oidc.Config{ClientID: clientId})
-				_ = verifier
+				verifier := provider.Verifier(&oidc.Config{ClientID: config.OdicClientId})
 
 				oauth2Token, err := oauth2Config.Exchange(ctx, body.Code)
 				if err != nil {
@@ -239,6 +294,26 @@ func InstallAuthHandlers(app core.App, group pyrin.Group) {
 				// }
 
 				return AuthLoginWithCode{}, nil
+			},
+		},
+
+		pyrin.NormalHandler{
+			Name:   "AuthCallback",
+			Method: http.MethodGet,
+			Path:   "/auth/callback",
+			HandlerFunc: func(c pyrin.Context) error {
+				url := c.Request().URL
+				state := url.Query().Get("state")
+				code := url.Query().Get("code")
+
+				pretty.Println(url.Query())
+
+				_ = code
+
+				session := authService.Sessions[state]
+				session.Status = AuthSessionStatusCompleted
+
+				return nil
 			},
 		},
 
