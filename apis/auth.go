@@ -20,8 +20,8 @@ import (
 
 // TODO(patrik):
 //  - Callback: Set the code on the session object
-//  - Callback: Render HTML pages with success, error
-//  - Create a poll mechanism for the frontend client to get the code
+//  - Callback: Render HTML pages with success, error, expired
+//  - Callback: Check for session expired
 
 type Signup struct {
 	Id       string `json:"id"`
@@ -111,6 +111,7 @@ type GetMe struct {
 type AuthInitiate struct {
 	SessionId string `json:"sessionId"`
 	AuthUrl   string `json:"authUrl"`
+	ExpiresAt string `json:"expiresAt"`
 }
 
 type AuthLoginWithCode struct {
@@ -139,15 +140,23 @@ const (
 )
 
 type AuthSession struct {
-	Id      string
-	Type    AuthSessionType
-	Status  AuthSessionStatus
+	Id     string
+	Type   AuthSessionType
+	Status AuthSessionStatus
+
+	OAuth2Code string
+
 	Expires time.Time
 	Delete  time.Time
 }
 
 type AuthService struct {
 	Sessions map[string]*AuthSession
+}
+
+type GetAuthCode struct {
+	Status AuthSessionStatus `json:"status"`
+	Code   *string           `json:"code"`
 }
 
 func (a *AuthService) CreateNormalSession() *AuthSession {
@@ -158,8 +167,8 @@ func (a *AuthService) CreateNormalSession() *AuthSession {
 		Id:      id,
 		Type:    AuthSessionTypeNormal,
 		Status:  AuthSessionStatusPending,
-		Expires: t.Add(5 * time.Minute),
-		Delete: t.Add(1 * time.Hour),
+		Expires: t.Add(10 * time.Second),
+		Delete:  t.Add(1 * time.Hour),
 	}
 
 	a.Sessions[id] = session
@@ -177,10 +186,10 @@ func (a *AuthService) RemoveUnusedEntries() {
 }
 
 func (a *AuthService) RunRoutine() {
-    ticker := time.NewTicker(30 * time.Minute)
-    for range ticker.C {
+	ticker := time.NewTicker(30 * time.Minute)
+	for range ticker.C {
 		a.RemoveUnusedEntries()
-    }
+	}
 }
 
 var authService = &AuthService{
@@ -222,6 +231,7 @@ func InstallAuthHandlers(app core.App, group pyrin.Group) {
 				return AuthInitiate{
 					SessionId: session.Id,
 					AuthUrl:   authURL,
+					ExpiresAt: session.Expires.Format(time.RFC3339Nano),
 				}, nil
 			},
 		},
@@ -306,14 +316,36 @@ func InstallAuthHandlers(app core.App, group pyrin.Group) {
 				state := url.Query().Get("state")
 				code := url.Query().Get("code")
 
-				pretty.Println(url.Query())
-
-				_ = code
-
 				session := authService.Sessions[state]
 				session.Status = AuthSessionStatusCompleted
+				session.OAuth2Code = code
 
 				return nil
+			},
+		},
+
+		pyrin.ApiHandler{
+			Name:         "GetAuthCode",
+			Path:         "/auth/code/:sessionId",
+			Method:       http.MethodGet,
+			ResponseType: GetAuthCode{},
+			HandlerFunc: func(c pyrin.Context) (any, error) {
+				sessionId := c.Param("sessionId")
+
+				session, exists := authService.Sessions[sessionId]
+				if !exists {
+					return nil, errors.New("no auth session available")
+				}
+
+				var code *string
+				if session.Status == AuthSessionStatusCompleted && session.OAuth2Code != "" {
+					code = &session.OAuth2Code
+				}
+
+				return GetAuthCode{
+					Status: session.Status,
+					Code:   code,
+				}, nil
 			},
 		},
 

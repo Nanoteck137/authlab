@@ -28,6 +28,11 @@
           "name": "authUrl",
           "type": "string",
           "omitEmpty": false
+        },
+        {
+          "name": "expiresAt",
+          "type": "string",
+          "omitEmpty": false
         }
       ]
     },
@@ -87,6 +92,21 @@
       ]
     },
     {
+      "name": "GetAuthCode",
+      "fields": [
+        {
+          "name": "status",
+          "type": "string",
+          "omitEmpty": false
+        },
+        {
+          "name": "code",
+          "type": "*string",
+          "omitEmpty": false
+        }
+      ]
+    },
+    {
       "name": "GetMe",
       "fields": [
         {
@@ -139,6 +159,12 @@
   ],
   "endpoints": [
     {
+      "type": "normal",
+      "name": "AuthCallback",
+      "method": "GET",
+      "path": "/api/v1/auth/callback"
+    },
+    {
       "type": "api",
       "name": "AuthInitiate",
       "method": "POST",
@@ -173,6 +199,13 @@
       "method": "GET",
       "path": "/api/v1/user/apitoken",
       "response": "GetAllApiTokens"
+    },
+    {
+      "type": "api",
+      "name": "GetAuthCode",
+      "method": "GET",
+      "path": "/api/v1/auth/code/:sessionId",
+      "response": "GetAuthCode"
     },
     {
       "type": "api",

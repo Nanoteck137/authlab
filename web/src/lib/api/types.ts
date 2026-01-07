@@ -16,6 +16,8 @@ export const AuthInitiate = z.object({
   "sessionId": z.string(),
   // Name: AuthInitiate.authUrl
   "authUrl": z.string(),
+  // Name: AuthInitiate.expiresAt
+  "expiresAt": z.string(),
 });
 export type AuthInitiate = z.infer<typeof AuthInitiate>;
 
@@ -55,6 +57,15 @@ export const GetAllApiTokens = z.object({
   "tokens": z.array(ApiToken),
 });
 export type GetAllApiTokens = z.infer<typeof GetAllApiTokens>;
+
+// Name: GetAuthCode
+export const GetAuthCode = z.object({
+  // Name: GetAuthCode.status
+  "status": z.string(),
+  // Name: GetAuthCode.code
+  "code": z.string().nullable(),
+});
+export type GetAuthCode = z.infer<typeof GetAuthCode>;
 
 // Name: GetMe
 export const GetMe = z.object({

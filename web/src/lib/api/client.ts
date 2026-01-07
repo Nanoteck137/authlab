@@ -11,6 +11,7 @@ export class ApiClient extends BaseApiClient {
     this.url = new ClientUrls(baseUrl);
   }
   
+  
   authInitiate(options?: ExtraOptions) {
     return this.request("/api/v1/auth/initiate", "POST", api.AuthInitiate, z.any(), undefined, options)
   }
@@ -29,6 +30,10 @@ export class ApiClient extends BaseApiClient {
   
   getAllApiTokens(options?: ExtraOptions) {
     return this.request("/api/v1/user/apitoken", "GET", api.GetAllApiTokens, z.any(), undefined, options)
+  }
+  
+  getAuthCode(sessionId: string, options?: ExtraOptions) {
+    return this.request(`/api/v1/auth/code/${sessionId}`, "GET", api.GetAuthCode, z.any(), undefined, options)
   }
   
   getMe(options?: ExtraOptions) {
@@ -51,6 +56,10 @@ export class ClientUrls {
     this.baseUrl = baseUrl;
   }
   
+  authCallback() {
+    return createUrl(this.baseUrl, "/api/v1/auth/callback")
+  }
+  
   authInitiate() {
     return createUrl(this.baseUrl, "/api/v1/auth/initiate")
   }
@@ -69,6 +78,10 @@ export class ClientUrls {
   
   getAllApiTokens() {
     return createUrl(this.baseUrl, "/api/v1/user/apitoken")
+  }
+  
+  getAuthCode(sessionId: string) {
+    return createUrl(this.baseUrl, `/api/v1/auth/code/${sessionId}`)
   }
   
   getMe() {
