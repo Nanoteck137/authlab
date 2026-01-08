@@ -12,6 +12,7 @@ import (
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/kr/pretty"
 	"github.com/nanoteck137/authlab/core"
+	"github.com/nanoteck137/authlab/database"
 	"github.com/nanoteck137/authlab/tools/utils"
 	"github.com/nanoteck137/pyrin"
 	"github.com/nanoteck137/validate"
@@ -22,6 +23,8 @@ import (
 //  - Callback: Set the code on the session object
 //  - Callback: Render HTML pages with success, error, expired
 //  - Callback: Check for session expired
+//  - Support for multiple odic providers
+//  - Add provider to users in database
 
 type Signup struct {
 	Id       string `json:"id"`
@@ -284,17 +287,78 @@ func InstallAuthHandlers(app core.App, group pyrin.Group) {
 					return nil, err
 				}
 
+				{
+					var t map[string]any
+					err = idToken.Claims(&t)
+					if err != nil {
+						return nil, err
+					}
+
+					pretty.Println(t)
+				}
+
 				// Extract user claims from OIDC token
 				var oidcClaims struct {
-					Email string `json:"email"`
-					Name  string `json:"name"`
-					Sub   string `json:"sub"`
+					Email       string `json:"email"`
+					Name        string `json:"name"`
+					DisplayName string `json:"display_name"`
+					Picture     string `json:"picture"`
+					Sub         string `json:"sub"`
 				}
-				if err := idToken.Claims(&oidcClaims); err != nil {
+				err = idToken.Claims(&oidcClaims)
+				if err != nil {
 					return nil, err
 				}
 
 				pretty.Println(oidcClaims)
+
+				// return nil, nil
+
+				identity, err := app.DB().GetUserIdentity(ctx, "pocketid", oidcClaims.Sub)
+				if err != nil {
+					if errors.Is(err, database.ErrItemNotFound) {
+						var userId string
+
+						user, err := app.DB().GetUserByEmail(ctx, oidcClaims.Email)
+						if err != nil {
+							if errors.Is(err, database.ErrItemNotFound) {
+								user, err = app.DB().CreateUser(ctx, database.CreateUserParams{
+									Email:       oidcClaims.Email,
+									DisplayName: oidcClaims.DisplayName,
+									Role:        "user",
+								})
+								if err != nil {
+									return nil, err
+								}
+
+								userId = user.Id
+							} else {
+								return nil, err
+							}
+						} else {
+							userId = user.Id
+						}
+
+						pretty.Println(userId)
+
+						err = app.DB().CreateUserIdentity(ctx, database.CreateUserIdentityParams{
+							Provider:   "pocketid",
+							ProviderId: oidcClaims.Sub,
+							UserId:     userId,
+						})
+						if err != nil {
+							return nil, err
+						}
+
+						pretty.Println("created identity")
+
+						return nil, errors.New("create new identity or user")
+					}
+
+					return nil, err
+				}
+
+				pretty.Println(identity)
 
 				// app.DB().GetUserById()
 
@@ -360,22 +424,22 @@ func InstallAuthHandlers(app core.App, group pyrin.Group) {
 					return nil, err
 				}
 
-				displayName := user.Username
-				if user.DisplayName.Valid {
-					displayName = user.DisplayName.String
-				}
-
-				var quickPlaylist *string
-				if user.QuickPlaylist.Valid {
-					quickPlaylist = &user.QuickPlaylist.String
-				}
+				// displayName := user.Username
+				// if user.DisplayName.Valid {
+				// 	displayName = user.DisplayName.String
+				// }
+				//
+				// var quickPlaylist *string
+				// if user.QuickPlaylist.Valid {
+				// 	quickPlaylist = &user.QuickPlaylist.String
+				// }
 
 				return GetMe{
-					Id:            user.Id,
-					Username:      user.Username,
-					Role:          user.Role,
-					DisplayName:   displayName,
-					QuickPlaylist: quickPlaylist,
+					Id: user.Id,
+					// Username:      user.Username,
+					Role: user.Role,
+					// DisplayName:   displayName,
+					// QuickPlaylist: quickPlaylist,
 				}, nil
 			},
 		},

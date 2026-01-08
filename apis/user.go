@@ -2,7 +2,6 @@ package apis
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"net/http"
 
@@ -78,20 +77,20 @@ func InstallUserHandlers(app core.App, group pyrin.Group) {
 				pretty.Println(user)
 				pretty.Println(body)
 
-				settings := user.ToUserSettings()
-
-				if body.DisplayName != nil {
-					settings.DisplayName = sql.NullString{
-						String: *body.DisplayName,
-						Valid:  true,
-					}
-				}
-
-				err = app.DB().UpdateUserSettings(context.TODO(), settings)
-				if err != nil {
-					// TODO(patrik): Handle error
-					return nil, err
-				}
+				// settings := user.ToUserSettings()
+				//
+				// if body.DisplayName != nil {
+				// 	settings.DisplayName = sql.NullString{
+				// 		String: *body.DisplayName,
+				// 		Valid:  true,
+				// 	}
+				// }
+				//
+				// err = app.DB().UpdateUserSettings(context.TODO(), settings)
+				// if err != nil {
+				// 	// TODO(patrik): Handle error
+				// 	return nil, err
+				// }
 
 				return nil, nil
 			},

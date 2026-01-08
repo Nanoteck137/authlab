@@ -13,51 +13,47 @@ import (
 
 type UserSettings struct {
 	Id            string         `db:"id"`
-	DisplayName   sql.NullString `db:"display_name"`
 	QuickPlaylist sql.NullString `db:"quick_playlist"`
 }
 
 type User struct {
-	Id       string `db:"id"`
-	Username string `db:"username"`
-	Password string `db:"password"`
-	Role     string `db:"role"`
+	Id    string `db:"id"`
+	Email string `db:"email"`
+
+	DisplayName string `db:"display_name"`
+	Role        string `db:"role"`
 
 	Created int64 `db:"created"`
 	Updated int64 `db:"updated"`
-
-	// NOTE(patrik): This needs to match UserSettings
-	DisplayName   sql.NullString `db:"display_name"`
-	QuickPlaylist sql.NullString `db:"quick_playlist"`
 }
 
-func (u User) ToUserSettings() UserSettings {
-	return UserSettings{
-		Id:            u.Id,
-		DisplayName:   u.DisplayName,
-		QuickPlaylist: u.QuickPlaylist,
-	}
-}
+// func (u User) ToUserSettings() UserSettings {
+// 	return UserSettings{
+// 		Id:            u.Id,
+// 		DisplayName:   u.DisplayName,
+// 		QuickPlaylist: u.QuickPlaylist,
+// 	}
+// }
 
 func UserQuery() *goqu.SelectDataset {
 	query := dialect.From("users").
 		Select(
 			"users.id",
-			"users.username",
-			// TODO(patrik): Maybe don't include the password?
-			"users.password",
+			"users.email",
+
+			"users.display_name",
 			"users.role",
 
 			"users.created",
 			"users.updated",
 
-			"users_settings.display_name",
-			"users_settings.quick_playlist",
-		).
-		LeftJoin(
-			goqu.I("users_settings"),
-			goqu.On(goqu.I("users.id").Eq(goqu.I("users_settings.id"))),
+			// "users_settings.display_name",
+			// "users_settings.quick_playlist",
 		)
+		// LeftJoin(
+		// 	goqu.I("users_settings"),
+		// 	goqu.On(goqu.I("users.id").Eq(goqu.I("users_settings.id"))),
+		// )
 
 	return query
 }
@@ -80,11 +76,40 @@ func (db DB) GetAllUsers(ctx context.Context) ([]User, error) {
 	return ember.Multiple[User](db.db, ctx, query)
 }
 
+func (db DB) GetUserById(ctx context.Context, id string) (User, error) {
+	query := UserQuery().
+		Where(goqu.I("users.id").Eq(id))
+
+	return ember.Single[User](db.db, ctx, query)
+}
+
+func (db DB) GetUserByUsername(ctx context.Context, username string) (User, error) {
+	query := UserQuery().
+		Where(goqu.I("users.username").Eq(username))
+
+	return ember.Single[User](db.db, ctx, query)
+}
+
+func (db DB) GetUserByEmail(ctx context.Context, email string) (User, error) {
+	query := UserQuery().
+		Where(goqu.I("users.email").Eq(email))
+
+	return ember.Single[User](db.db, ctx, query)
+}
+
+func (db DB) GetUserSettingsById(ctx context.Context, id string) (UserSettings, error) {
+	query := UserSettingsQuery().
+		Where(goqu.I("users_settings.id").Eq(id))
+
+	return ember.Single[UserSettings](db.db, ctx, query)
+}
+
 type CreateUserParams struct {
-	Id       string
-	Username string
-	Password string
-	Role     string
+	Id    string
+	Email string
+
+	DisplayName string
+	Role        string
 
 	Created int64
 	Updated int64
@@ -100,26 +125,28 @@ func (db DB) CreateUser(ctx context.Context, params CreateUserParams) (User, err
 		updated = t
 	}
 
-	id := params.Id
-	if id == "" {
-		id = utils.CreateId()
+	if params.Id == "" {
+		params.Id = utils.CreateId()
 	}
 
 	query := dialect.
 		Insert("users").
 		Rows(goqu.Record{
-			"id":       id,
-			"username": params.Username,
-			"password": params.Password,
-			"role":     params.Role,
+			"id":    params.Id,
+			"email": params.Email,
+
+			"display_name": params.DisplayName,
+			"role":         params.Role,
 
 			"created": created,
 			"updated": updated,
 		}).
+		// TODO(patrik): Fix this
 		Returning(
 			"users.id",
-			"users.username",
-			"users.password",
+			"users.email",
+
+			"users.display_name",
 			"users.role",
 
 			"users.created",
@@ -129,30 +156,9 @@ func (db DB) CreateUser(ctx context.Context, params CreateUserParams) (User, err
 	return ember.Single[User](db.db, ctx, query)
 }
 
-func (db DB) GetUserById(ctx context.Context, id string) (User, error) {
-	query := UserQuery().
-		Where(goqu.I("users.id").Eq(id))
-
-	return ember.Single[User](db.db, ctx, query)
-}
-
-func (db DB) GetUserSettingsById(ctx context.Context, id string) (UserSettings, error) {
-	query := UserSettingsQuery().
-		Where(goqu.I("users_settings.id").Eq(id))
-
-	return ember.Single[UserSettings](db.db, ctx, query)
-}
-
-func (db DB) GetUserByUsername(ctx context.Context, username string) (User, error) {
-	query := UserQuery().
-		Where(goqu.I("users.username").Eq(username))
-
-	return ember.Single[User](db.db, ctx, query)
-}
-
 type UserChanges struct {
-	Username types.Change[string]
-	Password types.Change[string]
+	DisplayName types.Change[string]
+	Role        types.Change[string]
 
 	Created types.Change[int64]
 }
@@ -160,8 +166,8 @@ type UserChanges struct {
 func (db DB) UpdateUser(ctx context.Context, id string, changes UserChanges) error {
 	record := goqu.Record{}
 
-	addToRecord(record, "username", changes.Username)
-	addToRecord(record, "password", changes.Password)
+	addToRecord(record, "display_name", changes.DisplayName)
+	addToRecord(record, "role", changes.Role)
 
 	addToRecord(record, "created", changes.Created)
 
@@ -183,22 +189,22 @@ func (db DB) UpdateUser(ctx context.Context, id string, changes UserChanges) err
 	return nil
 }
 
-func (db DB) UpdateUserSettings(ctx context.Context, settings UserSettings) error {
-	query := dialect.Insert("users_settings").
-		Rows(goqu.Record{
-			"id":             settings.Id,
-			"display_name":   settings.DisplayName,
-			"quick_playlist": settings.QuickPlaylist,
-		}).
-		OnConflict(goqu.DoUpdate("id", goqu.Record{
-			"display_name":   settings.DisplayName,
-			"quick_playlist": settings.QuickPlaylist,
-		}))
-
-	_, err := db.db.Exec(ctx, query)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
+// func (db DB) UpdateUserSettings(ctx context.Context, settings UserSettings) error {
+// 	query := dialect.Insert("users_settings").
+// 		Rows(goqu.Record{
+// 			"id":             settings.Id,
+// 			"display_name":   settings.DisplayName,
+// 			"quick_playlist": settings.QuickPlaylist,
+// 		}).
+// 		OnConflict(goqu.DoUpdate("id", goqu.Record{
+// 			"display_name":   settings.DisplayName,
+// 			"quick_playlist": settings.QuickPlaylist,
+// 		}))
+//
+// 	_, err := db.db.Exec(ctx, query)
+// 	if err != nil {
+// 		return err
+// 	}
+//
+// 	return nil
+// }
