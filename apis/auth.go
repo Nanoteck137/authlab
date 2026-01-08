@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/kr/pretty"
 	"github.com/nanoteck137/authlab/core"
 	"github.com/nanoteck137/authlab/database"
@@ -312,13 +313,11 @@ func InstallAuthHandlers(app core.App, group pyrin.Group) {
 
 				pretty.Println(oidcClaims)
 
-				// return nil, nil
+				var userId string
 
 				identity, err := app.DB().GetUserIdentity(ctx, "pocketid", oidcClaims.Sub)
 				if err != nil {
 					if errors.Is(err, database.ErrItemNotFound) {
-						var userId string
-
 						user, err := app.DB().GetUserByEmail(ctx, oidcClaims.Email)
 						if err != nil {
 							if errors.Is(err, database.ErrItemNotFound) {
@@ -349,25 +348,31 @@ func InstallAuthHandlers(app core.App, group pyrin.Group) {
 						if err != nil {
 							return nil, err
 						}
-
-						pretty.Println("created identity")
-
-						return nil, errors.New("create new identity or user")
+					} else {
+						return nil, err
 					}
+				} else {
+					userId = identity.UserId
+				}
 
+				if userId == "" {
+					return nil, errors.New("no user found")
+				}
+
+				token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+					"userId": userId,
+					"iat":    time.Now().Unix(),
+					// "exp":    time.Now().Add(1000 * time.Second).Unix(),
+				})
+
+				tokenString, err := token.SignedString(([]byte)(app.Config().JwtSecret))
+				if err != nil {
 					return nil, err
 				}
 
-				pretty.Println(identity)
-
-				// app.DB().GetUserById()
-
-				// // Create YOUR OWN JWT token for the frontend to use
-				// appToken, refreshToken, err := generateTokenPair(oidcClaims.Sub, oidcClaims.Email, oidcClaims.Name)
-				// if err != nil {
-				// }
-
-				return AuthLoginWithCode{}, nil
+				return AuthLoginWithCode{
+					Token: tokenString,
+				}, nil
 			},
 		},
 
