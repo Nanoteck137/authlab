@@ -1,8 +1,8 @@
 # run_migrations = true
 listen_addr = ":3000"
 data_dir = "/Some/Dir"
-odic_client_id = "<ODIC_CLIENT_ID>"
-odic_client_secret = "<ODIC_CLIENT_SECRET>"
-odic_issuer_url = "<ODIC_ISSUER_URL>"
-odic_redirect_url = "https://customdomain.com/api/v1/auth/callback"
+oidc_client_id = "<OIDC_CLIENT_ID>"
+oidc_client_secret = "<OIDC_CLIENT_SECRET>"
+oidc_issuer_url = "<OIDC_ISSUER_URL>"
+oidc_redirect_url = "https://customdomain.com/api/v1/auth/callback"
 jwt_secret = "" # Example: openssl rand -base64 32

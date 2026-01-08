@@ -23,7 +23,7 @@ import (
 //  - Callback: Set the code on the session object
 //  - Callback: Render HTML pages with success, error, expired
 //  - Callback: Check for session expired
-//  - Support for multiple odic providers
+//  - Support for multiple oidc providers
 //  - Add provider to users in database
 
 type Signup struct {
@@ -215,15 +215,15 @@ func InstallAuthHandlers(app core.App, group pyrin.Group) {
 
 				config := app.Config()
 
-				provider, err := oidc.NewProvider(ctx, config.OdicIssuerUrl)
+				provider, err := oidc.NewProvider(ctx, config.OidcIssuerUrl)
 				if err != nil {
 					return nil, fmt.Errorf("Failed to create OIDC provider: %w", err)
 				}
 
 				oauth2Config := &oauth2.Config{
-					ClientID:     config.OdicClientId,
-					ClientSecret: config.OdicClientSecret,
-					RedirectURL:  config.OdicRedirectUrl,
+					ClientID:     config.OidcClientId,
+					ClientSecret: config.OidcClientSecret,
+					RedirectURL:  config.OidcRedirectUrl,
 					Endpoint:     provider.Endpoint(),
 					Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
 				}
@@ -255,20 +255,20 @@ func InstallAuthHandlers(app core.App, group pyrin.Group) {
 
 				config := app.Config()
 
-				provider, err := oidc.NewProvider(ctx, config.OdicIssuerUrl)
+				provider, err := oidc.NewProvider(ctx, config.OidcIssuerUrl)
 				if err != nil {
 					return nil, fmt.Errorf("Failed to create OIDC provider: %w", err)
 				}
 
 				oauth2Config := &oauth2.Config{
-					ClientID:     config.OdicClientId,
-					ClientSecret: config.OdicClientSecret,
-					RedirectURL:  config.OdicRedirectUrl,
+					ClientID:     config.OidcClientId,
+					ClientSecret: config.OidcClientSecret,
+					RedirectURL:  config.OidcRedirectUrl,
 					Endpoint:     provider.Endpoint(),
 					Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
 				}
 
-				verifier := provider.Verifier(&oidc.Config{ClientID: config.OdicClientId})
+				verifier := provider.Verifier(&oidc.Config{ClientID: config.OidcClientId})
 
 				oauth2Token, err := oauth2Config.Exchange(ctx, body.Code)
 				if err != nil {
