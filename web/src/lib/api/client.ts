@@ -17,7 +17,7 @@ export class ApiClient extends BaseApiClient {
   }
   
   authLoginWithCode(body: api.AuthLoginWithCodeBody, options?: ExtraOptions) {
-    return this.request("/api/v1/auth/loginWithCode", "POST", api.AuthLoginWithCode, z.any(), body, options)
+    return this.request("/api/v1/auth/login-with-code", "POST", api.AuthLoginWithCode, z.any(), body, options)
   }
   
   createApiToken(body: api.CreateApiTokenBody, options?: ExtraOptions) {
@@ -65,7 +65,7 @@ export class ClientUrls {
   }
   
   authLoginWithCode() {
-    return createUrl(this.baseUrl, "/api/v1/auth/loginWithCode")
+    return createUrl(this.baseUrl, "/api/v1/auth/login-with-code")
   }
   
   createApiToken() {

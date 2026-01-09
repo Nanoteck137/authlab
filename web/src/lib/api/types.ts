@@ -60,8 +60,6 @@ export type GetAllApiTokens = z.infer<typeof GetAllApiTokens>;
 
 // Name: GetAuthCode
 export const GetAuthCode = z.object({
-  // Name: GetAuthCode.status
-  "status": z.string(),
   // Name: GetAuthCode.code
   "code": z.string().nullable(),
 });

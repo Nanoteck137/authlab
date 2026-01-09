@@ -60,7 +60,7 @@
 
           console.log(res.data);
 
-          if (res.data.status === "completed") {
+          if (res.data.code) {
             clearInterval(pollInterval);
 
             win?.close();
@@ -70,27 +70,30 @@
               code: res.data.code!,
               state: sessionId,
             });
-          } else if (res.data.status === "failed") {
-            clearInterval(pollInterval);
-            resolve({
-              isSuccess: false,
-              message: `authentication failed for unknown reason`,
-            });
-          } else if (res.data.status === "expired") {
-            clearInterval(pollInterval);
-            resolve({
-              isSuccess: false,
-              message: `authentication session expired`,
-            });
-          } else if (res.data.status === "pending") {
-            return;
-          } else {
-            clearInterval(pollInterval);
-            resolve({
-              isSuccess: false,
-              message: `authentication failed for unknown reason`,
-            });
           }
+
+          // if (res.data.status === "completed") {
+          // } else if (res.data.status === "failed") {
+          //   clearInterval(pollInterval);
+          //   resolve({
+          //     isSuccess: false,
+          //     message: `authentication failed for unknown reason`,
+          //   });
+          // } else if (res.data.status === "expired") {
+          //   clearInterval(pollInterval);
+          //   resolve({
+          //     isSuccess: false,
+          //     message: `authentication session expired`,
+          //   });
+          // } else if (res.data.status === "pending") {
+          //   return;
+          // } else {
+          //   clearInterval(pollInterval);
+          //   resolve({
+          //     isSuccess: false,
+          //     message: `authentication failed for unknown reason`,
+          //   });
+          // }
         } catch (error) {
           clearInterval(pollInterval);
           console.error("auth catch error", error);
