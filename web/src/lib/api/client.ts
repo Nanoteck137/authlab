@@ -32,8 +32,8 @@ export class ApiClient extends BaseApiClient {
     return this.request("/api/v1/user/apitoken", "GET", api.GetAllApiTokens, z.any(), undefined, options)
   }
   
-  getAuthCode(sessionId: string, options?: ExtraOptions) {
-    return this.request(`/api/v1/auth/code/${sessionId}`, "GET", api.GetAuthCode, z.any(), undefined, options)
+  getAuthCode(requestId: string, options?: ExtraOptions) {
+    return this.request(`/api/v1/auth/code/${requestId}`, "GET", api.GetAuthCode, z.any(), undefined, options)
   }
   
   getMe(options?: ExtraOptions) {
@@ -80,8 +80,8 @@ export class ClientUrls {
     return createUrl(this.baseUrl, "/api/v1/user/apitoken")
   }
   
-  getAuthCode(sessionId: string) {
-    return createUrl(this.baseUrl, `/api/v1/auth/code/${sessionId}`)
+  getAuthCode(requestId: string) {
+    return createUrl(this.baseUrl, `/api/v1/auth/code/${requestId}`)
   }
   
   getMe() {

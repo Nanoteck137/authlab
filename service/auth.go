@@ -17,31 +17,31 @@ import (
 )
 
 var (
-	ErrAuthServiceSessionAlreadyExists = errors.New("AuthService: session already exists")
-	ErrAuthServiceSessionNotFound      = errors.New("AuthService: session not found")
-	ErrAuthServiceSessionExpired       = errors.New("AuthService: session is expired")
+	ErrAuthServiceRequestAlreadyExists = errors.New("AuthService: request already exists")
+	ErrAuthServiceRequestNotFound      = errors.New("AuthService: request not found")
+	ErrAuthServiceRequestExpired       = errors.New("AuthService: request is expired")
 )
 
-type AuthSessionType string
+type AuthRequestType string
 
 const (
-	AuthSessionTypeNormal    AuthSessionType = "normal"
-	AuthSessionTypeQuickCode AuthSessionType = "quick-code"
+	AuthRequestTypeNormal    AuthRequestType = "normal"
+	AuthRequestTypeQuickCode AuthRequestType = "quick-code"
 )
 
-type AuthSessionStatus string
+type AuthRequestStatus string
 
 const (
-	AuthSessionStatusPending   AuthSessionStatus = "pending"
-	AuthSessionStatusCompleted AuthSessionStatus = "completed"
-	AuthSessionStatusExpired   AuthSessionStatus = "expired"
-	AuthSessionStatusFailed    AuthSessionStatus = "failed"
+	AuthRequestStatusPending   AuthRequestStatus = "pending"
+	AuthRequestStatusCompleted AuthRequestStatus = "completed"
+	AuthRequestStatusExpired   AuthRequestStatus = "expired"
+	AuthRequestStatusFailed    AuthRequestStatus = "failed"
 )
 
-type AuthSession struct {
+type AuthRequest struct {
 	Id     string
-	Type   AuthSessionType
-	Status AuthSessionStatus
+	Type   AuthRequestType
+	Status AuthRequestStatus
 
 	OAuth2Code string
 
@@ -55,7 +55,7 @@ type AuthService struct {
 
 	initialized bool
 
-	Sessions map[string]*AuthSession
+	Requests map[string]*AuthRequest
 
 	provider     *oidc.Provider
 	oauth2Config *oauth2.Config
@@ -67,74 +67,74 @@ func NewAuthService(db *database.Database, jwtSecret string) *AuthService {
 		db:          db,
 		jwtSecret:   jwtSecret,
 		initialized: false,
-		Sessions:    make(map[string]*AuthSession),
+		Requests:    make(map[string]*AuthRequest),
 	}
 }
 
-type SessionResult struct {
-	SessionId string
+type RequestResult struct {
+	RequestId string
 	AuthUrl   string
 	Expires   time.Time
 }
 
-func (a *AuthService) CreateNormalSession() (SessionResult, error) {
+func (a *AuthService) CreateNormalRequest() (RequestResult, error) {
 	// TODO(patrik): Add init check?
 
 	id := utils.CreateId()
 
 	t := time.Now()
-	session := &AuthSession{
+	request := &AuthRequest{
 		Id:      id,
-		Type:    AuthSessionTypeNormal,
-		Status:  AuthSessionStatusPending,
+		Type:    AuthRequestTypeNormal,
+		Status:  AuthRequestStatusPending,
 		Expires: t.Add(5 * time.Minute),
 		Delete:  t.Add(1 * time.Hour),
 	}
 
-	_, exists := a.Sessions[id]
+	_, exists := a.Requests[id]
 	if exists {
-		return SessionResult{}, ErrAuthServiceSessionAlreadyExists
+		return RequestResult{}, ErrAuthServiceRequestAlreadyExists
 	}
 
-	a.Sessions[id] = session
+	a.Requests[id] = request
 
-	authUrl := a.oauth2Config.AuthCodeURL(session.Id)
+	authUrl := a.oauth2Config.AuthCodeURL(request.Id)
 
-	return SessionResult{
-		SessionId: id,
+	return RequestResult{
+		RequestId: id,
 		AuthUrl:   authUrl,
-		Expires:   session.Expires,
+		Expires:   request.Expires,
 	}, nil
 }
 
-func (a *AuthService) CompleteSession(sessionId, code string) error {
-	session, exists := a.Sessions[sessionId]
+func (a *AuthService) CompleteRequest(requestId, code string) error {
+	request, exists := a.Requests[requestId]
 	if !exists {
-		return ErrAuthServiceSessionNotFound
+		return ErrAuthServiceRequestNotFound
 	}
 
-	if time.Now().After(session.Expires) {
-		session.Status = AuthSessionStatusExpired
-		return ErrAuthServiceSessionExpired
+	if time.Now().After(request.Expires) {
+		request.Status = AuthRequestStatusExpired
+		return ErrAuthServiceRequestExpired
 	}
 
-	session.Status = AuthSessionStatusCompleted
-	session.OAuth2Code = code
+	request.Status = AuthRequestStatusCompleted
+	request.OAuth2Code = code
 
 	return nil
 }
 
-func (a *AuthService) GetAuthCode(sessionId string) (*string, error) {
-	session, exists := a.Sessions[sessionId]
+func (a *AuthService) GetAuthCode(requestId string) (*string, error) {
+	request, exists := a.Requests[requestId]
 	if !exists {
-		return nil, ErrAuthServiceSessionNotFound
+		return nil, ErrAuthServiceRequestNotFound
 	}
 
-	if session.Status != AuthSessionStatusCompleted {
+	if request.Status != AuthRequestStatusCompleted {
 		return nil, nil
 	}
 
-	return &session.OAuth2Code, nil
+	return &request.OAuth2Code, nil
 }
 
 func (a *AuthService) GetUserFromCode(ctx context.Context, code string) (string, error) {
@@ -248,9 +248,9 @@ func (a *AuthService) SignUserToken(userId string) (string, error) {
 
 func (a *AuthService) RemoveUnusedEntries() {
 	now := time.Now()
-	for k, session := range a.Sessions {
-		if session.Delete.After(now) {
-			delete(a.Sessions, k)
+	for k, request := range a.Requests {
+		if now.After(request.Delete) {
+			delete(a.Requests, k)
 		}
 	}
 }

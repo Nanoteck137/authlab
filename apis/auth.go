@@ -16,7 +16,6 @@ import (
 //  - Support for multiple oidc providers
 //  - Add provider to users in database
 //  - Code Login "ABCD-1234"
-//  - Rename "AuthSession" to "AuthRequest"
 
 type GetMe struct {
 	Id       string `json:"id"`
@@ -28,7 +27,7 @@ type GetMe struct {
 }
 
 type AuthInitiate struct {
-	SessionId string `json:"sessionId"`
+	RequestId string `json:"requestId"`
 	AuthUrl   string `json:"authUrl"`
 	ExpiresAt string `json:"expiresAt"`
 }
@@ -59,13 +58,13 @@ func InstallAuthHandlers(app core.App, group pyrin.Group) {
 					return nil, err
 				}
 
-				res, err := authService.CreateNormalSession()
+				res, err := authService.CreateNormalRequest()
 				if err != nil {
 					return nil, err
 				}
 
 				return AuthInitiate{
-					SessionId: res.SessionId,
+					RequestId: res.RequestId,
 					AuthUrl:   res.AuthUrl,
 					ExpiresAt: res.Expires.Format(time.RFC3339Nano),
 				}, nil
@@ -121,10 +120,10 @@ func InstallAuthHandlers(app core.App, group pyrin.Group) {
 					return err
 				}
 
-				err = authService.CompleteSession(state, code)
+				err = authService.CompleteRequest(state, code)
 				if err != nil {
-					if errors.Is(err, service.ErrAuthServiceSessionExpired) {
-						return errors.New("session expired")
+					if errors.Is(err, service.ErrAuthServiceRequestExpired) {
+						return errors.New("request expired")
 					}
 
 					return err
@@ -136,22 +135,22 @@ func InstallAuthHandlers(app core.App, group pyrin.Group) {
 
 		pyrin.ApiHandler{
 			Name:         "GetAuthCode",
-			Path:         "/auth/code/:sessionId",
+			Path:         "/auth/code/:requestId",
 			Method:       http.MethodGet,
 			ResponseType: GetAuthCode{},
 			HandlerFunc: func(c pyrin.Context) (any, error) {
-				sessionId := c.Param("sessionId")
+				requestId := c.Param("requestId")
 
 				authService, err := app.AuthService()
 				if err != nil {
 					return nil, err
 				}
 
-				code, err := authService.GetAuthCode(sessionId)
+				code, err := authService.GetAuthCode(requestId)
 				if err != nil {
-					if errors.Is(err, service.ErrAuthServiceSessionNotFound) {
+					if errors.Is(err, service.ErrAuthServiceRequestNotFound) {
 						// TODO(patrik): Better error
-						return nil, errors.New("session not found")
+						return nil, errors.New("request not found")
 					}
 
 					return nil, err

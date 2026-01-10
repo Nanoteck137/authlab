@@ -20,7 +20,7 @@
       "name": "AuthInitiate",
       "fields": [
         {
-          "name": "sessionId",
+          "name": "requestId",
           "type": "string",
           "omitEmpty": false
         },
@@ -199,7 +199,7 @@
       "type": "api",
       "name": "GetAuthCode",
       "method": "GET",
-      "path": "/api/v1/auth/code/:sessionId",
+      "path": "/api/v1/auth/code/:requestId",
       "response": "GetAuthCode"
     },
     {

@@ -28,16 +28,16 @@
       });
     }
 
-    const { sessionId, expiresAt, authUrl } = res.data;
+    const { requestId, expiresAt, authUrl } = res.data;
 
-    console.log("Session ID:", sessionId);
+    console.log("Request ID:", requestId);
     console.log("Opening authentication window...");
 
     const win = window.open(authUrl, "auth_window", "width=500,height=600");
 
     return new Promise((resolve, reject) => {
       const expiresAtDate = new Date(expiresAt);
-      console.log("Session Expires At", expiresAtDate);
+      console.log("Request Expires At", expiresAtDate);
 
       const pollInterval = setInterval(async () => {
         try {
@@ -48,7 +48,7 @@
             return;
           }
 
-          const res = await apiClient.getAuthCode(sessionId);
+          const res = await apiClient.getAuthCode(requestId);
           if (!res.success) {
             clearInterval(pollInterval);
             resolve({
@@ -68,7 +68,7 @@
             resolve({
               isSuccess: true,
               code: res.data.code!,
-              state: sessionId,
+              state: requestId,
             });
           }
 

@@ -12,8 +12,8 @@ export type ApiToken = z.infer<typeof ApiToken>;
 
 // Name: AuthInitiate
 export const AuthInitiate = z.object({
-  // Name: AuthInitiate.sessionId
-  "sessionId": z.string(),
+  // Name: AuthInitiate.requestId
+  "requestId": z.string(),
   // Name: AuthInitiate.authUrl
   "authUrl": z.string(),
   // Name: AuthInitiate.expiresAt
