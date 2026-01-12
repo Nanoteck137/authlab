@@ -48,6 +48,7 @@ export class ApiClient extends BaseApiClient {
     return this.request("/api/v1/system/info", "GET", api.GetSystemInfo, z.any(), undefined, options)
   }
   
+  
   updateUserSettings(body: api.UpdateUserSettingsBody, options?: ExtraOptions) {
     return this.request("/api/v1/user/settings", "PATCH", z.undefined(), z.any(), body, options)
   }
@@ -98,6 +99,10 @@ export class ClientUrls {
   
   getSystemInfo() {
     return createUrl(this.baseUrl, "/api/v1/system/info")
+  }
+  
+  rootFiles() {
+    return createUrl(this.baseUrl, "/*")
   }
   
   updateUserSettings() {

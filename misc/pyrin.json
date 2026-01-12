@@ -249,6 +249,12 @@
       "response": "GetSystemInfo"
     },
     {
+      "type": "normal",
+      "name": "RootFiles",
+      "method": "GET",
+      "path": "/*"
+    },
+    {
       "type": "api",
       "name": "UpdateUserSettings",
       "method": "PATCH",
