@@ -87,14 +87,12 @@ export type GetAuthProviders = z.infer<typeof GetAuthProviders>;
 export const GetMe = z.object({
   // Name: GetMe.id
   "id": z.string(),
-  // Name: GetMe.username
-  "username": z.string(),
-  // Name: GetMe.role
-  "role": z.string(),
+  // Name: GetMe.email
+  "email": z.string(),
   // Name: GetMe.displayName
   "displayName": z.string(),
-  // Name: GetMe.quickPlaylist
-  "quickPlaylist": z.string().nullable(),
+  // Name: GetMe.role
+  "role": z.string(),
 });
 export type GetMe = z.infer<typeof GetMe>;
 

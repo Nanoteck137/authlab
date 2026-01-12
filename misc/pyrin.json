@@ -140,12 +140,7 @@
           "omitEmpty": false
         },
         {
-          "name": "username",
-          "type": "string",
-          "omitEmpty": false
-        },
-        {
-          "name": "role",
+          "name": "email",
           "type": "string",
           "omitEmpty": false
         },
@@ -155,8 +150,8 @@
           "omitEmpty": false
         },
         {
-          "name": "quickPlaylist",
-          "type": "*string",
+          "name": "role",
+          "type": "string",
           "omitEmpty": false
         }
       ]

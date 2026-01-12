@@ -28,7 +28,7 @@ export const handle: Handle = async ({ event, resolve }) => {
     event.locals.user &&
     (url.pathname === "/login" || url.pathname === "/register")
   ) {
-    throw redirect(301, "/");
+    throw redirect(303, "/");
   }
 
   // if (

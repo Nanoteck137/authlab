@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Home, LogIn, LogOut, Menu } from "lucide-svelte";
+  import { Home, LogIn, LogOut, Menu, User } from "lucide-svelte";
   import "../app.css";
   import Link from "$lib/components/Link.svelte";
   import { browser } from "$app/environment";
@@ -101,14 +101,14 @@
     <div class="flex-grow"></div>
     <div class="flex flex-col gap-2 px-4 py-2">
       {#if data.user}
-        <!-- <Link
-          title={data.user.username}
+        <Link
+          title={data.user.displayName}
           href="/account"
           icon={User}
           onClick={close}
         />
 
-        {#if data.user.role === "super_user"}
+        <!-- {#if data.user.role === "super_user"}
           <Link title="Server" href="/server" icon={Server} onClick={close} />
         {/if} -->
 

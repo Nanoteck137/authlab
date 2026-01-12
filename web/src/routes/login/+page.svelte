@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { invalidateAll } from "$app/navigation";
   import { getApiClient, handleApiError } from "$lib";
   import { Button } from "@nanoteck137/nano-ui";
   import toast from "svelte-5-french-toast";
@@ -127,6 +128,23 @@
       }
 
       console.log(res);
+
+      {
+        const body = {
+          token: res.data.token,
+        };
+
+        const r = await fetch("/auth/login", {
+          method: "POST",
+          body: JSON.stringify(body),
+        });
+
+        const data = await r.json();
+        if (data.isSuccess) {
+          invalidateAll();
+        }
+        console.log(data);
+      }
     }}
   >
     Login with {provider.displayName}

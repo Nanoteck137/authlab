@@ -20,12 +20,10 @@ import (
 //  - Code Login "ABCD-1234"
 
 type GetMe struct {
-	Id       string `json:"id"`
-	Username string `json:"username"`
-	Role     string `json:"role"`
-
-	DisplayName   string  `json:"displayName"`
-	QuickPlaylist *string `json:"quickPlaylist"`
+	Id          string `json:"id"`
+	Email       string `json:"email"`
+	DisplayName string `json:"displayName"`
+	Role        string `json:"role"`
 }
 
 type AuthInitiate struct {
@@ -214,22 +212,11 @@ func InstallAuthHandlers(app core.App, group pyrin.Group) {
 					return nil, err
 				}
 
-				// displayName := user.Username
-				// if user.DisplayName.Valid {
-				// 	displayName = user.DisplayName.String
-				// }
-				//
-				// var quickPlaylist *string
-				// if user.QuickPlaylist.Valid {
-				// 	quickPlaylist = &user.QuickPlaylist.String
-				// }
-
 				return GetMe{
-					Id: user.Id,
-					// Username:      user.Username,
-					Role: user.Role,
-					// DisplayName:   displayName,
-					// QuickPlaylist: quickPlaylist,
+					Id:          user.Id,
+					Email:       user.Email,
+					DisplayName: user.DisplayName,
+					Role:        user.Role,
 				}, nil
 			},
 		},
