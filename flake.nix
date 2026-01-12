@@ -54,20 +54,15 @@
           version = fullVersion;
 
           src = gitignore.lib.gitignoreSource ./web;
-          npmDepsHash = "sha256-fWymnJnrDS39AHzT90h8+ItxPJ+q8CxENWUfkk79MG4=";
+          npmDepsHash = "sha256-HmaXCFxbB1Q0JgD11bMlATq9tvrDAP3BzBcGUlOW2L4=";
 
           PUBLIC_VERSION=version;
           PUBLIC_COMMIT=self.dirtyRev or self.rev or "no-commit";
+          PUBLIC_API_ADDRESS="";
 
           installPhase = ''
             runHook preInstall
             cp -r build $out/
-            echo '{ "type": "module" }' > $out/package.json
-
-            mkdir $out/bin
-            echo -e "#!${pkgs.runtimeShell}\n${pkgs.nodejs}/bin/node $out\n" > $out/bin/authlab-web
-            chmod +x $out/bin/authlab-web
-
             runHook postInstall
           '';
         };
@@ -77,6 +72,9 @@
       {
         packages = {
           default = backend;
+          # test = frontend.overrideAttrs(_: {
+          #   PUBLIC_API_ADDRESS="http://nanoteck137.net";
+          # });
           inherit backend frontend;
         };
 

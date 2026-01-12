@@ -5,16 +5,16 @@
   import { browser } from "$app/environment";
   import { fade, fly } from "svelte/transition";
   import { Toaster } from "svelte-5-french-toast";
-  import { setApiClient, setApiClientAuth } from "$lib";
+  import { setApiClient, setApiClientAuth, setApiClientRaw } from "$lib";
+  import { invalidateAll } from "$app/navigation";
 
   let { children, data } = $props();
 
-  let apiClient = setApiClient(data.apiAddress, data.userToken);
+  let apiClient = setApiClientRaw(data.apiClient);
 
-  $effect(() => {
-    if (!browser) return;
-    setApiClientAuth(apiClient, data.userToken);
-  });
+  // $effect(() => {
+  //   setApiClientAuth(apiClient, localStorage.getItem("token") ?? undefined);
+  // });
 
   let showSideMenu = $state(false);
 
@@ -112,9 +112,15 @@
           <Link title="Server" href="/server" icon={Server} onClick={close} />
         {/if} -->
 
-        <form class="w-full" action="/logout" method="POST">
-          <Link title="Logout" icon={LogOut} onClick={close} />
-        </form>
+        <Link
+          title="Logout"
+          icon={LogOut}
+          onClick={() => {
+            localStorage.removeItem("token");
+            invalidateAll();
+            close();
+          }}
+        />
       {:else}
         <Link title="Login" href="/login" icon={LogIn} onClick={close} />
       {/if}

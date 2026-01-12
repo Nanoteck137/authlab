@@ -29,6 +29,10 @@ export function setApiClient(baseUrl: string, token?: string) {
   return setContext(API_CLIENT_KEY, apiClient);
 }
 
+export function setApiClientRaw(client: ApiClient) {
+  return setContext(API_CLIENT_KEY, client);
+}
+
 export function getApiClient() {
   return getContext<ReturnType<typeof setApiClient>>(API_CLIENT_KEY);
 }

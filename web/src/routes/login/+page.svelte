@@ -129,22 +129,8 @@
 
       console.log(res);
 
-      {
-        const body = {
-          token: res.data.token,
-        };
-
-        const r = await fetch("/auth/login", {
-          method: "POST",
-          body: JSON.stringify(body),
-        });
-
-        const data = await r.json();
-        if (data.isSuccess) {
-          invalidateAll();
-        }
-        console.log(data);
-      }
+      localStorage.setItem("token", res.data.token);
+      invalidateAll();
     }}
   >
     Login with {provider.displayName}
