@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"sort"
 	"time"
 
+	"github.com/maruel/natural"
 	"github.com/nanoteck137/authlab/core"
 	"github.com/nanoteck137/authlab/service"
 	"github.com/nanoteck137/pyrin"
@@ -37,28 +39,67 @@ type AuthLoginWithCode struct {
 }
 
 type AuthLoginWithCodeBody struct {
-	Code  string `json:"code"`
-	State string `json:"state"`
+	ProviderId string `json:"providerId"`
+	Code       string `json:"code"`
+	State      string `json:"state"`
 }
 
 type GetAuthCode struct {
 	Code *string `json:"code"`
 }
 
+type AuthProvider struct {
+	Id          string `json:"id"`
+	DisplayName string `json:"displayName"`
+}
+
+type GetAuthProviders struct {
+	Providers []AuthProvider `json:"providers"`
+}
+
 func InstallAuthHandlers(app core.App, group pyrin.Group) {
 	group.Register(
 		pyrin.ApiHandler{
+			Name:         "GetAuthProviders",
+			Method:       http.MethodGet,
+			Path:         "/auth/providers",
+			ResponseType: GetAuthProviders{},
+			HandlerFunc: func(c pyrin.Context) (any, error) {
+				providers := app.Config().OidcProviders
+
+				res := GetAuthProviders{
+					Providers: make([]AuthProvider, 0, len(providers)),
+				}
+
+				for id, provider := range providers {
+					res.Providers = append(res.Providers, AuthProvider{
+						Id:          id,
+						DisplayName: provider.Name,
+					})
+				}
+
+				sort.Slice(res.Providers, func(i, j int) bool {
+					return natural.Less(res.Providers[i].DisplayName, res.Providers[j].DisplayName)
+				})
+
+				return res, nil
+			},
+		},
+
+		pyrin.ApiHandler{
 			Name:         "AuthInitiate",
 			Method:       http.MethodPost,
-			Path:         "/auth/initiate",
+			Path:         "/auth/initiate/:providerId",
 			ResponseType: AuthInitiate{},
 			HandlerFunc: func(c pyrin.Context) (any, error) {
+				providerId := c.Param("providerId")
+
 				authService, err := app.AuthService()
 				if err != nil {
 					return nil, err
 				}
 
-				res, err := authService.CreateNormalRequest()
+				res, err := authService.CreateNormalRequest(providerId)
 				if err != nil {
 					return nil, err
 				}
@@ -90,7 +131,7 @@ func InstallAuthHandlers(app core.App, group pyrin.Group) {
 					return nil, err
 				}
 
-				userId, err := authService.GetUserFromCode(ctx, body.Code)
+				userId, err := authService.GetUserFromCode(ctx, body.ProviderId, body.Code)
 				if err != nil {
 					return nil, err
 				}

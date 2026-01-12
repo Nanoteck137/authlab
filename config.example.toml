@@ -1,8 +1,14 @@
+# config_override = "<PATH_TO_OVERRIDE>"
 # run_migrations = true
 listen_addr = ":3000"
 data_dir = "/Some/Dir"
-oidc_client_id = "<OIDC_CLIENT_ID>"
-oidc_client_secret = "<OIDC_CLIENT_SECRET>"
-oidc_issuer_url = "<OIDC_ISSUER_URL>"
-oidc_redirect_url = "https://customdomain.com/api/v1/auth/callback"
 jwt_secret = "" # Example: openssl rand -base64 32
+
+[oidc_providers]
+
+[oidc_providers.<PROVIDER_ID>]
+name = "<PROVIDER_NAME>"
+client_id = "<OIDC_CLIENT_ID>"
+client_secret = "<OIDC_CLIENT_SECRET>"
+issuer_url = "<OIDC_ISSUER_URL>"
+redirect_url = "<ADDRESS_TO_API>/api/v1/auth/callback" # Example: https://customdomain.com/api/v1/auth/callback

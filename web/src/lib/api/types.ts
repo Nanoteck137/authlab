@@ -30,12 +30,23 @@ export type AuthLoginWithCode = z.infer<typeof AuthLoginWithCode>;
 
 // Name: AuthLoginWithCodeBody
 export const AuthLoginWithCodeBody = z.object({
+  // Name: AuthLoginWithCodeBody.providerId
+  "providerId": z.string(),
   // Name: AuthLoginWithCodeBody.code
   "code": z.string(),
   // Name: AuthLoginWithCodeBody.state
   "state": z.string(),
 });
 export type AuthLoginWithCodeBody = z.infer<typeof AuthLoginWithCodeBody>;
+
+// Name: AuthProvider
+export const AuthProvider = z.object({
+  // Name: AuthProvider.id
+  "id": z.string(),
+  // Name: AuthProvider.displayName
+  "displayName": z.string(),
+});
+export type AuthProvider = z.infer<typeof AuthProvider>;
 
 // Name: CreateApiToken
 export const CreateApiToken = z.object({
@@ -64,6 +75,13 @@ export const GetAuthCode = z.object({
   "code": z.string().nullable(),
 });
 export type GetAuthCode = z.infer<typeof GetAuthCode>;
+
+// Name: GetAuthProviders
+export const GetAuthProviders = z.object({
+  // Name: GetAuthProviders.providers
+  "providers": z.array(AuthProvider),
+});
+export type GetAuthProviders = z.infer<typeof GetAuthProviders>;
 
 // Name: GetMe
 export const GetMe = z.object({

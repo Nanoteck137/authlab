@@ -12,8 +12,8 @@ export class ApiClient extends BaseApiClient {
   }
   
   
-  authInitiate(options?: ExtraOptions) {
-    return this.request("/api/v1/auth/initiate", "POST", api.AuthInitiate, z.any(), undefined, options)
+  authInitiate(providerId: string, options?: ExtraOptions) {
+    return this.request(`/api/v1/auth/initiate/${providerId}`, "POST", api.AuthInitiate, z.any(), undefined, options)
   }
   
   authLoginWithCode(body: api.AuthLoginWithCodeBody, options?: ExtraOptions) {
@@ -34,6 +34,10 @@ export class ApiClient extends BaseApiClient {
   
   getAuthCode(requestId: string, options?: ExtraOptions) {
     return this.request(`/api/v1/auth/code/${requestId}`, "GET", api.GetAuthCode, z.any(), undefined, options)
+  }
+  
+  getAuthProviders(options?: ExtraOptions) {
+    return this.request("/api/v1/auth/providers", "GET", api.GetAuthProviders, z.any(), undefined, options)
   }
   
   getMe(options?: ExtraOptions) {
@@ -60,8 +64,8 @@ export class ClientUrls {
     return createUrl(this.baseUrl, "/api/v1/auth/callback")
   }
   
-  authInitiate() {
-    return createUrl(this.baseUrl, "/api/v1/auth/initiate")
+  authInitiate(providerId: string) {
+    return createUrl(this.baseUrl, `/api/v1/auth/initiate/${providerId}`)
   }
   
   authLoginWithCode() {
@@ -82,6 +86,10 @@ export class ClientUrls {
   
   getAuthCode(requestId: string) {
     return createUrl(this.baseUrl, `/api/v1/auth/code/${requestId}`)
+  }
+  
+  getAuthProviders() {
+    return createUrl(this.baseUrl, "/api/v1/auth/providers")
   }
   
   getMe() {

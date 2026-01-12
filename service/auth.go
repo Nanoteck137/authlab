@@ -39,7 +39,9 @@ const (
 )
 
 type AuthRequest struct {
-	Id     string
+	Id         string
+	ProviderId string
+
 	Type   AuthRequestType
 	Status AuthRequestStatus
 
@@ -49,17 +51,88 @@ type AuthRequest struct {
 	Delete  time.Time
 }
 
+type AuthProvider struct {
+	Id          string
+	DisplayName string
+
+	provider     *oidc.Provider
+	oauth2Config *oauth2.Config
+	verifier     *oidc.IDTokenVerifier
+}
+
+func (p *AuthProvider) init(ctx context.Context, config config.ConfigOidcProvider) error {
+	var err error
+
+	p.provider, err = oidc.NewProvider(ctx, config.IssuerUrl)
+	if err != nil {
+		return fmt.Errorf("failed to create OIDC provider (%s): %w", err, p.Id)
+	}
+
+	p.oauth2Config = &oauth2.Config{
+		ClientID:     config.ClientId,
+		ClientSecret: config.ClientSecret,
+		RedirectURL:  config.RedirectUrl,
+		Endpoint:     p.provider.Endpoint(),
+		Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
+	}
+
+	p.verifier = p.provider.Verifier(&oidc.Config{ClientID: config.ClientId})
+
+	return nil
+}
+
+type providerClaim struct {
+	Email       string `json:"email"`
+	Name        string `json:"name"`
+	DisplayName string `json:"display_name"`
+	Picture     string `json:"picture"`
+	Sub         string `json:"sub"`
+}
+
+func (p *AuthProvider) claim(ctx context.Context, code string) (providerClaim, error) {
+	oauth2Token, err := p.oauth2Config.Exchange(ctx, code)
+	if err != nil {
+		return providerClaim{}, err
+	}
+
+	rawIDToken, ok := oauth2Token.Extra("id_token").(string)
+	if !ok {
+		return providerClaim{}, errors.New("failed to login")
+	}
+
+	idToken, err := p.verifier.Verify(ctx, rawIDToken)
+	if err != nil {
+		return providerClaim{}, err
+	}
+
+	// {
+	// 	var t map[string]any
+	// 	err = idToken.Claims(&t)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	//
+	// 	pretty.Println(t)
+	// }
+
+	var claims providerClaim 
+	err = idToken.Claims(&claims)
+	if err != nil {
+		return providerClaim{}, err
+	}
+
+	return claims, nil
+}
+
 type AuthService struct {
 	db        *database.Database
 	jwtSecret string
 
 	initialized bool
 
-	Requests map[string]*AuthRequest
+	providers map[string]*AuthProvider
 
-	provider     *oidc.Provider
-	oauth2Config *oauth2.Config
-	verifier     *oidc.IDTokenVerifier
+	Requests map[string]*AuthRequest
 }
 
 func NewAuthService(db *database.Database, jwtSecret string) *AuthService {
@@ -67,6 +140,7 @@ func NewAuthService(db *database.Database, jwtSecret string) *AuthService {
 		db:          db,
 		jwtSecret:   jwtSecret,
 		initialized: false,
+		providers:   make(map[string]*AuthProvider),
 		Requests:    make(map[string]*AuthRequest),
 	}
 }
@@ -77,28 +151,35 @@ type RequestResult struct {
 	Expires   time.Time
 }
 
-func (a *AuthService) CreateNormalRequest() (RequestResult, error) {
+func (a *AuthService) CreateNormalRequest(providerId string) (RequestResult, error) {
 	// TODO(patrik): Add init check?
+
+	provider, exists := a.providers[providerId]
+	if !exists {
+		// TODO(patrik): Better error
+		return RequestResult{}, errors.New("provider not found")
+	}
 
 	id := utils.CreateId()
 
 	t := time.Now()
 	request := &AuthRequest{
-		Id:      id,
-		Type:    AuthRequestTypeNormal,
-		Status:  AuthRequestStatusPending,
-		Expires: t.Add(5 * time.Minute),
-		Delete:  t.Add(1 * time.Hour),
+		Id:         id,
+		ProviderId: provider.Id,
+		Type:       AuthRequestTypeNormal,
+		Status:     AuthRequestStatusPending,
+		Expires:    t.Add(5 * time.Minute),
+		Delete:     t.Add(1 * time.Hour),
 	}
 
-	_, exists := a.Requests[id]
+	_, exists = a.Requests[id]
 	if exists {
 		return RequestResult{}, ErrAuthServiceRequestAlreadyExists
 	}
 
 	a.Requests[id] = request
 
-	authUrl := a.oauth2Config.AuthCodeURL(request.Id)
+	authUrl := provider.oauth2Config.AuthCodeURL(request.Id)
 
 	return RequestResult{
 		RequestId: id,
@@ -137,41 +218,14 @@ func (a *AuthService) GetAuthCode(requestId string) (*string, error) {
 	return &request.OAuth2Code, nil
 }
 
-func (a *AuthService) GetUserFromCode(ctx context.Context, code string) (string, error) {
-	oauth2Token, err := a.oauth2Config.Exchange(ctx, code)
-	if err != nil {
-		return "", err
+func (a *AuthService) GetUserFromCode(ctx context.Context, providerId, code string) (string, error) {
+	provider, exists := a.providers[providerId]
+	if !exists {
+		// TODO(patrik): Fix error
+		return "", errors.New("provider not found")
 	}
 
-	rawIDToken, ok := oauth2Token.Extra("id_token").(string)
-	if !ok {
-		return "", errors.New("failed to login")
-	}
-
-	idToken, err := a.verifier.Verify(ctx, rawIDToken)
-	if err != nil {
-		return "", err
-	}
-
-	// {
-	// 	var t map[string]any
-	// 	err = idToken.Claims(&t)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	//
-	// 	pretty.Println(t)
-	// }
-
-	// Extract user claims from OIDC token
-	var oidcClaims struct {
-		Email       string `json:"email"`
-		Name        string `json:"name"`
-		DisplayName string `json:"display_name"`
-		Picture     string `json:"picture"`
-		Sub         string `json:"sub"`
-	}
-	err = idToken.Claims(&oidcClaims)
+	oidcClaims, err := provider.claim(ctx, code)
 	if err != nil {
 		return "", err
 	}
@@ -182,9 +236,14 @@ func (a *AuthService) GetUserFromCode(ctx context.Context, code string) (string,
 		user, err := a.db.GetUserByEmail(ctx, oidcClaims.Email)
 		if err != nil {
 			if errors.Is(err, database.ErrItemNotFound) {
+				displayName := oidcClaims.DisplayName
+				if displayName == "" {
+					displayName = oidcClaims.Name
+				}
+
 				user, err = a.db.CreateUser(ctx, database.CreateUserParams{
 					Email:       oidcClaims.Email,
-					DisplayName: oidcClaims.DisplayName,
+					DisplayName: displayName,
 					Role:        "user",
 				})
 				if err != nil {
@@ -200,7 +259,7 @@ func (a *AuthService) GetUserFromCode(ctx context.Context, code string) (string,
 		return user.Id, nil
 	}
 
-	identity, err := a.db.GetUserIdentity(ctx, "pocketid", oidcClaims.Sub)
+	identity, err := a.db.GetUserIdentity(ctx, providerId, oidcClaims.Sub)
 	if err != nil {
 		if errors.Is(err, database.ErrItemNotFound) {
 			userId, err := getOrCreateUser()
@@ -209,7 +268,7 @@ func (a *AuthService) GetUserFromCode(ctx context.Context, code string) (string,
 			}
 
 			err = a.db.CreateUserIdentity(ctx, database.CreateUserIdentityParams{
-				Provider:   "pocketid",
+				Provider:   providerId,
 				ProviderId: oidcClaims.Sub,
 				UserId:     userId,
 			})
@@ -268,22 +327,21 @@ func (a *AuthService) Init(ctx context.Context, config *config.Config) error {
 		return nil
 	}
 
-	var err error
+	for id, provider := range config.OidcProviders {
+		res := &AuthProvider{
+			Id:          id,
+			DisplayName: provider.Name,
+		}
 
-	a.provider, err = oidc.NewProvider(ctx, config.OidcIssuerUrl)
-	if err != nil {
-		return fmt.Errorf("AuthService: failed to create OIDC provider: %w", err)
+		// TODO(patrik): Store the error on the provider and show
+		// that in the frontend
+		err := res.init(ctx, provider)
+		if err != nil {
+			return fmt.Errorf("AuthService: failed to initialize AuthProvider: %w", err)
+		}
+
+		a.providers[id] = res
 	}
-
-	a.oauth2Config = &oauth2.Config{
-		ClientID:     config.OidcClientId,
-		ClientSecret: config.OidcClientSecret,
-		RedirectURL:  config.OidcRedirectUrl,
-		Endpoint:     a.provider.Endpoint(),
-		Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
-	}
-
-	a.verifier = a.provider.Verifier(&oidc.Config{ClientID: config.OidcClientId})
 
 	go a.RunRoutine()
 

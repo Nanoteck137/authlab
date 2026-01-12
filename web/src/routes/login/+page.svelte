@@ -17,9 +17,8 @@
   };
   type LoginResult = LoginSuccess | LoginError;
 
-  async function loginWithPolling(): Promise<LoginResult> {
-    // Step 1: Initiate authentication
-    const res = await apiClient.authInitiate();
+  async function loginWithPolling(providerId: string): Promise<LoginResult> {
+    const res = await apiClient.authInitiate(providerId);
     if (!res.success) {
       handleApiError(res.error);
       return Promise.resolve({
@@ -107,23 +106,29 @@
   }
 </script>
 
-<Button
-  onclick={async () => {
-    const login = await loginWithPolling();
-    if (!login.isSuccess) {
-      toast.error(`login failed: ${login.message}`);
-      return;
-    }
+{#each data.providers as provider}
+  <Button
+    onclick={async () => {
+      const login = await loginWithPolling(provider.id);
+      if (!login.isSuccess) {
+        toast.error(`login failed: ${login.message}`);
+        return;
+      }
 
-    console.log("login", login);
+      console.log("login", login);
 
-    const res = await apiClient.authLoginWithCode(login);
-    if (!res.success) {
-      return handleApiError(res.error);
-    }
+      const res = await apiClient.authLoginWithCode({
+        providerId: provider.id,
+        code: login.code,
+        state: login.state,
+      });
+      if (!res.success) {
+        return handleApiError(res.error);
+      }
 
-    console.log(res);
-  }}
->
-  Login with PocketID
-</Button>
+      console.log(res);
+    }}
+  >
+    Login with {provider.displayName}
+  </Button>
+{/each}
