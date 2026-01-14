@@ -10,12 +10,9 @@
 
     devtools.url     = "github:nanoteck137/devtools";
     devtools.inputs.nixpkgs.follows = "nixpkgs";
-
-    tagopus.url      = "github:nanoteck137/tagopus/v0.1.1";
-    tagopus.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = { self, nixpkgs, flake-utils, gitignore, devtools, tagopus, ... }:
+  outputs = { self, nixpkgs, flake-utils, gitignore, devtools, ... }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         overlays = [];
@@ -30,7 +27,7 @@
           pname = "authlab";
           version = fullVersion;
           src = ./.;
-          subPackages = ["cmd/authlab" "cmd/authlab-cli"];
+          subPackages = ["cmd/authlab"];
 
           ldflags = [
             "-X github.com/nanoteck137/authlab.Version=${version}"
@@ -44,8 +41,7 @@
           nativeBuildInputs = [ pkgs.makeWrapper ];
 
           postFixup = ''
-            wrapProgram $out/bin/authlab --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.ffmpeg pkgs.imagemagick ]}
-            wrapProgram $out/bin/authlab-cli --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.ffmpeg pkgs.imagemagick tagopus.packages.${system}.default ]}
+            wrapProgram $out/bin/authlab --prefix PATH : ${pkgs.lib.makeBinPath []}
           '';
         };
 
@@ -84,10 +80,8 @@
             go
             gopls
             nodejs
-            imagemagick
-            ffmpeg
+            tailwindcss_4
 
-            tagopus.packages.${system}.default
             tools.publishVersion
           ];
         };

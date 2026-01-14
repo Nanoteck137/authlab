@@ -43,6 +43,8 @@
         try {
           if (new Date() > expiresAtDate) {
             clearInterval(pollInterval);
+
+            win?.close();
             resolve({ isSuccess: false, message: `authentication timeout` });
 
             return;
@@ -57,8 +59,6 @@
             });
             return;
           }
-
-          console.log(res.data);
 
           if (res.data.code) {
             clearInterval(pollInterval);

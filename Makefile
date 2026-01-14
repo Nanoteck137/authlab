@@ -1,5 +1,6 @@
-run:
-	air
+build-render-artifacts:
+	mkdir -p render/static
+	tailwindcss -i render/css/style.css -o render/static/style.css
 
 clean:
 	rm -rf work
@@ -13,4 +14,4 @@ test-build:
 publish: test-build
 	publish-version
 
-.PHONY: run clean publish
+.PHONY: run clean publish build-render-artifacts

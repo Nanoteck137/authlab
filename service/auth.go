@@ -22,6 +22,10 @@ var (
 	ErrAuthServiceRequestExpired       = errors.New("AuthService: request is expired")
 )
 
+// const AuthRequestExpireDuration = 5 * time.Minute
+const AuthRequestExpireDuration = 5 * time.Second
+const AuthRequestDeletionDuration = 1 * time.Hour
+
 type AuthRequestType string
 
 const (
@@ -168,8 +172,8 @@ func (a *AuthService) CreateNormalRequest(providerId string) (RequestResult, err
 		ProviderId: provider.Id,
 		Type:       AuthRequestTypeNormal,
 		Status:     AuthRequestStatusPending,
-		Expires:    t.Add(5 * time.Minute),
-		Delete:     t.Add(1 * time.Hour),
+		Expires:    t.Add(AuthRequestExpireDuration),
+		Delete:     t.Add(AuthRequestDeletionDuration),
 	}
 
 	_, exists = a.Requests[id]

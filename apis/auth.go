@@ -9,15 +9,10 @@ import (
 
 	"github.com/maruel/natural"
 	"github.com/nanoteck137/authlab/core"
+	"github.com/nanoteck137/authlab/render"
 	"github.com/nanoteck137/authlab/service"
 	"github.com/nanoteck137/pyrin"
 )
-
-// TODO(patrik):
-//  - Callback: Render HTML pages with success, error, expired
-//  - Support for multiple oidc providers
-//  - Add provider to users in database
-//  - Code Login "ABCD-1234"
 
 type GetMe struct {
 	Id          string `json:"id"`
@@ -162,11 +157,20 @@ func InstallAuthHandlers(app core.App, group pyrin.Group) {
 				err = authService.CompleteRequest(state, code)
 				if err != nil {
 					if errors.Is(err, service.ErrAuthServiceRequestExpired) {
-						return errors.New("request expired")
+						render.RenderCallbackRequestExpired(c.Response())
+						c.Response().WriteHeader(http.StatusOK)
+
+						return nil
 					}
 
-					return err
+					render.RenderCallbackError(c.Response())
+					c.Response().WriteHeader(http.StatusOK)
+
+					return nil
 				}
+
+				render.RenderCallbackSuccess(c.Response())
+				c.Response().WriteHeader(http.StatusOK)
 
 				return nil
 			},

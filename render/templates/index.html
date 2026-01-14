@@ -1,0 +1,48 @@
+{{ define "base" }}
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="/static/style.css">
+    <title>Callback</title>
+
+  </head>
+  <body class="bg-slate-200 dark:bg-black dark:text-white min-h-screen">
+    <div class="flex flex-col justify-center items-center">
+      <div class="h-20"></div>
+
+      <h1 class="text-4xl font-bold">{{ .AppName }}</h1>
+
+      <div class="h-3"></div>
+
+      <div class="px-6 py-4 sm:px-12 sm:py-8 bg-white text-black text-center rounded-lg flex flex-col items-center">
+        {{ if eq .Icon "success" }}
+        <div class="bg-green-500 w-20 h-20 rounded-full flex items-center justify-center text-white shadow-md">
+            <svg class="size-14" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+            </svg>
+        </div>
+        {{ end }}
+
+        {{ if eq .Icon "error" }}
+        <div class="bg-red-500 w-20 h-20 rounded-full flex items-center justify-center text-white shadow-md">
+          <svg class="size-14" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </div>
+        {{ end }}
+
+        <div class="h-3"></div>
+
+        <h2 class="text-3xl font-semibold">{{ .Header }}</h2>
+
+        <div class="h-3"></div>
+
+        <!-- <p class="text-lg">You have been authenticated to <strong>Auth Lab</strong> successfully.<br>You can now close this tab.</p> -->
+        <p class="text-lg">{{ .Content }}</p>
+      </div>
+    </div>
+  </body>
+</html>
+{{ end }}

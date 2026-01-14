@@ -8,6 +8,7 @@ import (
 
 	"github.com/nanoteck137/authlab"
 	"github.com/nanoteck137/authlab/core"
+	"github.com/nanoteck137/authlab/render"
 	"github.com/nanoteck137/pyrin"
 )
 
@@ -42,6 +43,32 @@ func RegisterHandlers(app core.App, router pyrin.Router) {
 
 	g = router.Group("")
 	g.Register(
+		pyrin.NormalHandler{
+			Name:        "Test",
+			Method:      http.MethodGet,
+			Path:        "/test",
+			HandlerFunc: func(c pyrin.Context) error {
+				render.RenderCallbackError(c.Response())
+				c.Response().WriteHeader(200)
+
+				return nil
+			},
+		},
+
+		pyrin.NormalHandler{
+			Name:        "Test",
+			Method:      http.MethodGet,
+			Path:        "/static/*",
+			HandlerFunc: func(c pyrin.Context) error {
+				f := os.DirFS("./render/static")
+				fs := http.StripPrefix("/static", http.FileServerFS(f))
+
+				fs.ServeHTTP(c.Response(), c.Request())
+
+				return nil
+			},
+		},
+
 		pyrin.NormalHandler{
 			Name:   "RootFiles",
 			Method: http.MethodGet,

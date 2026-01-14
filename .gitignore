@@ -4,6 +4,7 @@ node_modules/
 /work/
 /mockdata/
 /build/
+/render/static
 
 .env*
 
