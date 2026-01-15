@@ -44,6 +44,6 @@ func RenderCallbackError(w io.Writer) error {
 		Icon:    "error",
 		AppName: authlab.AppName,
 		Header:  "Error!",
-		Content: template.HTML("This request is expired. Please retry<br>You can now close this tab."),
+		Content: template.HTML("An unknown error occurred. Please retry<br>You can now close this tab."),
 	})
 }
