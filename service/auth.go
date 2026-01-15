@@ -22,9 +22,10 @@ var (
 	ErrAuthServiceRequestExpired       = errors.New("AuthService: request is expired")
 )
 
-// const AuthRequestExpireDuration = 5 * time.Minute
-const AuthRequestExpireDuration = 5 * time.Second
-const AuthRequestDeletionDuration = 1 * time.Hour
+const (
+	AuthRequestExpireDuration   = 5 * time.Minute
+	AuthRequestDeletionDuration = 1 * time.Hour
+)
 
 type AuthRequestType string
 
@@ -119,7 +120,7 @@ func (p *AuthProvider) claim(ctx context.Context, code string) (providerClaim, e
 	// 	pretty.Println(t)
 	// }
 
-	var claims providerClaim 
+	var claims providerClaim
 	err = idToken.Claims(&claims)
 	if err != nil {
 		return providerClaim{}, err
