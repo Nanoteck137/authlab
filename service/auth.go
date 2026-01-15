@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -16,6 +17,44 @@ import (
 	"golang.org/x/oauth2"
 )
 
+// TODO(patrik): Move the generation code
+const (
+	letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	digits  = "0123456789"
+)
+
+func randomString(charset string, length int) (string, error) {
+	b := make([]byte, length)
+	_, err := rand.Read(b)
+	if err != nil {
+		return "", err
+	}
+
+	for i := range b {
+		b[i] = charset[int(b[i])%len(charset)]
+	}
+	return string(b), nil
+}
+
+func GenerateCode() (string, error) {
+	part1, err := randomString(letters, 4)
+	if err != nil {
+		return "", err
+	}
+
+	part2, err := randomString(digits, 4)
+	if err != nil {
+		return "", err
+	}
+
+	part3, err := randomString(letters, 4)
+	if err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("%s-%s-%s", part1, part2, part3), nil
+}
+
 var (
 	ErrAuthServiceRequestAlreadyExists = errors.New("AuthService: request already exists")
 	ErrAuthServiceRequestNotFound      = errors.New("AuthService: request not found")
@@ -25,6 +64,8 @@ var (
 const (
 	AuthRequestExpireDuration   = 5 * time.Minute
 	AuthRequestDeletionDuration = 1 * time.Hour
+
+	AuthQuickRequestExpireDuration = 15 * time.Minute
 )
 
 type AuthRequestType string
@@ -50,7 +91,10 @@ type AuthRequest struct {
 	Type   AuthRequestType
 	Status AuthRequestStatus
 
+	OAuth2Url  string
 	OAuth2Code string
+
+	QuickCode string
 
 	Expires time.Time
 	Delete  time.Time
@@ -129,6 +173,14 @@ func (p *AuthProvider) claim(ctx context.Context, code string) (providerClaim, e
 	return claims, nil
 }
 
+// TODO(patrik): Delete this when timer is out
+type AuthQuickRequest struct {
+	code      string
+	requestId string
+	userId    string
+	expires   time.Time
+}
+
 type AuthService struct {
 	db        *database.Database
 	jwtSecret string
@@ -137,16 +189,18 @@ type AuthService struct {
 
 	providers map[string]*AuthProvider
 
-	Requests map[string]*AuthRequest
+	Requests      map[string]*AuthRequest
+	QuickRequests map[string]*AuthQuickRequest
 }
 
 func NewAuthService(db *database.Database, jwtSecret string) *AuthService {
 	return &AuthService{
-		db:          db,
-		jwtSecret:   jwtSecret,
-		initialized: false,
-		providers:   make(map[string]*AuthProvider),
-		Requests:    make(map[string]*AuthRequest),
+		db:            db,
+		jwtSecret:     jwtSecret,
+		initialized:   false,
+		providers:     make(map[string]*AuthProvider),
+		Requests:      make(map[string]*AuthRequest),
+		QuickRequests: make(map[string]*AuthQuickRequest),
 	}
 }
 
@@ -182,15 +236,106 @@ func (a *AuthService) CreateNormalRequest(providerId string) (RequestResult, err
 		return RequestResult{}, ErrAuthServiceRequestAlreadyExists
 	}
 
-	a.Requests[id] = request
-
 	authUrl := provider.oauth2Config.AuthCodeURL(request.Id)
+
+	request.OAuth2Url = authUrl
+
+	a.Requests[id] = request
 
 	return RequestResult{
 		RequestId: id,
 		AuthUrl:   authUrl,
 		Expires:   request.Expires,
 	}, nil
+}
+
+func (a *AuthService) CreateNormalRequestForQuick(providerId, quickCode string) (RequestResult, error) {
+	// TODO(patrik): Add init check?
+
+	provider, exists := a.providers[providerId]
+	if !exists {
+		// TODO(patrik): Better error
+		return RequestResult{}, errors.New("provider not found")
+	}
+
+	id := utils.CreateId()
+
+	t := time.Now()
+	request := &AuthRequest{
+		Id:         id,
+		ProviderId: provider.Id,
+		Type:       AuthRequestTypeNormal,
+		Status:     AuthRequestStatusPending,
+		Expires:    t.Add(AuthRequestExpireDuration),
+		Delete:     t.Add(AuthRequestDeletionDuration),
+	}
+
+	_, exists = a.Requests[id]
+	if exists {
+		return RequestResult{}, ErrAuthServiceRequestAlreadyExists
+	}
+
+	authUrl := provider.oauth2Config.AuthCodeURL(request.Id)
+
+	request.OAuth2Url = authUrl
+	request.QuickCode = quickCode
+
+	a.Requests[id] = request
+
+	return RequestResult{
+		RequestId: id,
+		AuthUrl:   authUrl,
+		Expires:   request.Expires,
+	}, nil
+}
+
+type QuickRequestResult struct {
+	Code    string
+	Expires time.Time
+}
+
+func (a *AuthService) CreateQuickRequest() (QuickRequestResult, error) {
+	// TODO(patrik): Add init check?
+
+	// TODO(patrik): Generate the code
+	code, err := GenerateCode()
+	if err != nil {
+		return QuickRequestResult{}, err
+	}
+
+	t := time.Now()
+	request := &AuthQuickRequest{
+		code:    code,
+		expires: t.Add(AuthQuickRequestExpireDuration),
+	}
+
+	_, exists := a.QuickRequests[code]
+	if exists {
+		return QuickRequestResult{}, ErrAuthServiceRequestAlreadyExists
+	}
+
+	a.QuickRequests[code] = request
+
+	return QuickRequestResult{
+		Code:    code,
+		Expires: request.expires,
+	}, nil
+}
+
+func (a *AuthService) CompleteQuickRequest(code, userId string) error {
+	request, exists := a.QuickRequests[code]
+	if !exists {
+		return ErrAuthServiceRequestNotFound
+	}
+
+	if time.Now().After(request.expires) {
+		// request.Status = AuthRequestStatusExpired
+		return ErrAuthServiceRequestExpired
+	}
+
+	request.userId = userId
+
+	return nil
 }
 
 func (a *AuthService) CompleteRequest(requestId, code string) error {
@@ -223,6 +368,29 @@ func (a *AuthService) GetAuthCode(requestId string) (*string, error) {
 	}
 
 	return &request.OAuth2Code, nil
+}
+
+func (a *AuthService) GetAuthTokenForQuickCode(code string) (*string, error) {
+	request, exists := a.QuickRequests[code]
+	if !exists {
+		return nil, ErrAuthServiceRequestNotFound
+	}
+
+	// if request.Status != AuthRequestStatusCompleted {
+	// 	return nil, nil
+	// }
+
+	if request.userId == "" {
+		return nil, nil
+	}
+
+	// TODO(patrik): Check userId?
+	token, err := a.SignUserToken(request.userId)
+	if err != nil {
+		return nil, err
+	}
+
+	return &token, nil
 }
 
 func (a *AuthService) InvalidateRequest(requestId string) error {

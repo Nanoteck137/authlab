@@ -37,6 +37,36 @@
       ]
     },
     {
+      "name": "AuthInitiateQuick",
+      "fields": [
+        {
+          "name": "code",
+          "type": "string",
+          "omitEmpty": false
+        },
+        {
+          "name": "authUrl",
+          "type": "string",
+          "omitEmpty": false
+        },
+        {
+          "name": "expiresAt",
+          "type": "string",
+          "omitEmpty": false
+        }
+      ]
+    },
+    {
+      "name": "AuthLoginQuickCodeBody",
+      "fields": [
+        {
+          "name": "quickCode",
+          "type": "string",
+          "omitEmpty": false
+        }
+      ]
+    },
+    {
       "name": "AuthLoginWithCode",
       "fields": [
         {
@@ -132,6 +162,16 @@
       ]
     },
     {
+      "name": "GetAuthTokenFromQuickCode",
+      "fields": [
+        {
+          "name": "token",
+          "type": "*string",
+          "omitEmpty": false
+        }
+      ]
+    },
+    {
       "name": "GetMe",
       "fields": [
         {
@@ -193,6 +233,20 @@
     },
     {
       "type": "api",
+      "name": "AuthInitiateQuick",
+      "method": "POST",
+      "path": "/api/v1/auth/initiate/quick",
+      "response": "AuthInitiateQuick"
+    },
+    {
+      "type": "api",
+      "name": "AuthLoginQuickCode",
+      "method": "POST",
+      "path": "/api/v1/auth/login-quick-code",
+      "body": "AuthLoginQuickCodeBody"
+    },
+    {
+      "type": "api",
       "name": "AuthLoginWithCode",
       "method": "POST",
       "path": "/api/v1/auth/login-with-code",
@@ -233,6 +287,13 @@
       "method": "GET",
       "path": "/api/v1/auth/providers",
       "response": "GetAuthProviders"
+    },
+    {
+      "type": "api",
+      "name": "GetAuthTokenFromQuickCode",
+      "method": "GET",
+      "path": "/api/v1/auth/quick/token/:code",
+      "response": "GetAuthTokenFromQuickCode"
     },
     {
       "type": "api",

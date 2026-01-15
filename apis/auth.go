@@ -27,6 +27,12 @@ type AuthInitiate struct {
 	ExpiresAt string `json:"expiresAt"`
 }
 
+type AuthInitiateQuick struct {
+	Code      string `json:"code"`
+	AuthUrl   string `json:"authUrl"`
+	ExpiresAt string `json:"expiresAt"`
+}
+
 type AuthLoginWithCode struct {
 	Token string `json:"token"`
 }
@@ -48,6 +54,14 @@ type AuthProvider struct {
 
 type GetAuthProviders struct {
 	Providers []AuthProvider `json:"providers"`
+}
+
+type AuthLoginQuickCodeBody struct {
+	QuickCode string `json:"quickCode"`
+}
+
+type GetAuthTokenFromQuickCode struct {
+	Token *string `json:"token"`
 }
 
 func InstallAuthHandlers(app core.App, group pyrin.Group) {
@@ -102,6 +116,61 @@ func InstallAuthHandlers(app core.App, group pyrin.Group) {
 					AuthUrl:   res.AuthUrl,
 					ExpiresAt: res.Expires.Format(time.RFC3339Nano),
 				}, nil
+			},
+		},
+
+		pyrin.ApiHandler{
+			Name:         "AuthInitiateQuick",
+			Method:       http.MethodPost,
+			Path:         "/auth/initiate/quick",
+			ResponseType: AuthInitiateQuick{},
+			HandlerFunc: func(c pyrin.Context) (any, error) {
+				authService, err := app.AuthService()
+				if err != nil {
+					return nil, err
+				}
+
+				res, err := authService.CreateQuickRequest()
+				if err != nil {
+					return nil, err
+				}
+
+				return AuthInitiateQuick{
+					Code:    res.Code,
+					AuthUrl: "FIX ME",
+					// TODO(patrik): Move this to the AuthQuickRequest
+					ExpiresAt: res.Expires.Format(time.RFC3339Nano),
+				}, nil
+			},
+		},
+
+		pyrin.ApiHandler{
+			Name:     "AuthLoginQuickCode",
+			Method:   http.MethodPost,
+			Path:     "/auth/login-quick-code",
+			BodyType: AuthLoginQuickCodeBody{},
+			HandlerFunc: func(c pyrin.Context) (any, error) {
+				body, err := pyrin.Body[AuthLoginQuickCodeBody](c)
+				if err != nil {
+					return nil, err
+				}
+
+				user, err := User(app, c)
+				if err != nil {
+					return nil, err
+				}
+
+				authService, err := app.AuthService()
+				if err != nil {
+					return nil, err
+				}
+
+				err = authService.CompleteQuickRequest(body.QuickCode, user.Id)
+				if err != nil {
+					return nil, err
+				}
+
+				return nil, nil
 			},
 		},
 
@@ -206,6 +275,35 @@ func InstallAuthHandlers(app core.App, group pyrin.Group) {
 
 				return GetAuthCode{
 					Code: code,
+				}, nil
+			},
+		},
+
+		pyrin.ApiHandler{
+			Name:         "GetAuthTokenFromQuickCode",
+			Path:         "/auth/quick/token/:code",
+			Method:       http.MethodGet,
+			ResponseType: GetAuthTokenFromQuickCode{},
+			HandlerFunc: func(c pyrin.Context) (any, error) {
+				code := c.Param("code")
+
+				authService, err := app.AuthService()
+				if err != nil {
+					return nil, err
+				}
+
+				token, err := authService.GetAuthTokenForQuickCode(code)
+				if err != nil {
+					if errors.Is(err, service.ErrAuthServiceRequestNotFound) {
+						// TODO(patrik): Better error
+						return nil, errors.New("request not found")
+					}
+
+					return nil, err
+				}
+
+				return GetAuthTokenFromQuickCode{
+					Token: token,
 				}, nil
 			},
 		},

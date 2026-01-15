@@ -21,6 +21,24 @@ export const AuthInitiate = z.object({
 });
 export type AuthInitiate = z.infer<typeof AuthInitiate>;
 
+// Name: AuthInitiateQuick
+export const AuthInitiateQuick = z.object({
+  // Name: AuthInitiateQuick.code
+  "code": z.string(),
+  // Name: AuthInitiateQuick.authUrl
+  "authUrl": z.string(),
+  // Name: AuthInitiateQuick.expiresAt
+  "expiresAt": z.string(),
+});
+export type AuthInitiateQuick = z.infer<typeof AuthInitiateQuick>;
+
+// Name: AuthLoginQuickCodeBody
+export const AuthLoginQuickCodeBody = z.object({
+  // Name: AuthLoginQuickCodeBody.quickCode
+  "quickCode": z.string(),
+});
+export type AuthLoginQuickCodeBody = z.infer<typeof AuthLoginQuickCodeBody>;
+
 // Name: AuthLoginWithCode
 export const AuthLoginWithCode = z.object({
   // Name: AuthLoginWithCode.token
@@ -82,6 +100,13 @@ export const GetAuthProviders = z.object({
   "providers": z.array(AuthProvider),
 });
 export type GetAuthProviders = z.infer<typeof GetAuthProviders>;
+
+// Name: GetAuthTokenFromQuickCode
+export const GetAuthTokenFromQuickCode = z.object({
+  // Name: GetAuthTokenFromQuickCode.token
+  "token": z.string().nullable(),
+});
+export type GetAuthTokenFromQuickCode = z.infer<typeof GetAuthTokenFromQuickCode>;
 
 // Name: GetMe
 export const GetMe = z.object({
