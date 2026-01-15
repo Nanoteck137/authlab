@@ -204,8 +204,10 @@ func (a *AuthService) CompleteRequest(requestId, code string) error {
 		return ErrAuthServiceRequestExpired
 	}
 
-	request.Status = AuthRequestStatusCompleted
-	request.OAuth2Code = code
+	if request.Status == AuthRequestStatusPending {
+		request.Status = AuthRequestStatusCompleted
+		request.OAuth2Code = code
+	}
 
 	return nil
 }
@@ -221,6 +223,17 @@ func (a *AuthService) GetAuthCode(requestId string) (*string, error) {
 	}
 
 	return &request.OAuth2Code, nil
+}
+
+func (a *AuthService) InvalidateRequest(requestId string) error {
+	request, exists := a.Requests[requestId]
+	if !exists {
+		return ErrAuthServiceRequestNotFound
+	}
+
+	request.Status = AuthRequestStatusExpired
+
+	return nil
 }
 
 func (a *AuthService) GetUserFromCode(ctx context.Context, providerId, code string) (string, error) {

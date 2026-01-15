@@ -6,5 +6,5 @@
 - [x] Pyrin support for SPA
 - [x] Render HTML for callback pages with success, error, expired
 - [ ] Code Login "ABCD-1234"
-- [ ] authLoginWithCode should invalidate the request or delete it
+- [x] authLoginWithCode should invalidate the request or delete it
 

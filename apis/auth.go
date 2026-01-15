@@ -129,6 +129,11 @@ func InstallAuthHandlers(app core.App, group pyrin.Group) {
 					return nil, err
 				}
 
+				err = authService.InvalidateRequest(body.State)
+				if err != nil {
+					return nil, err
+				}
+
 				token, err := authService.SignUserToken(userId)
 				if err != nil {
 					return nil, err
