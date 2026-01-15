@@ -12,7 +12,7 @@ require (
 	github.com/kr/pretty v0.3.1
 	github.com/labstack/echo/v4 v4.12.0
 	github.com/mattn/go-sqlite3 v1.14.32
-	github.com/nanoteck137/pyrin v0.15.3-0.20250925080323-1f348e14f6fc
+	github.com/nanoteck137/pyrin v0.17.0
 	github.com/nanoteck137/validate v0.0.0-20241129211421-90ceb11de343
 	github.com/nrednav/cuid2 v1.0.0
 	github.com/pelletier/go-toml/v2 v2.1.0
