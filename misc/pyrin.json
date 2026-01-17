@@ -17,6 +17,16 @@
       ]
     },
     {
+      "name": "AuthGetQuickCodeStatus",
+      "fields": [
+        {
+          "name": "status",
+          "type": "string",
+          "omitEmpty": false
+        }
+      ]
+    },
+    {
       "name": "AuthInitiate",
       "fields": [
         {
@@ -166,7 +176,17 @@
       "fields": [
         {
           "name": "token",
-          "type": "*string",
+          "type": "string",
+          "omitEmpty": false
+        }
+      ]
+    },
+    {
+      "name": "GetAuthTokenFromQuickCodeBody",
+      "fields": [
+        {
+          "name": "code",
+          "type": "string",
           "omitEmpty": false
         }
       ]
@@ -223,6 +243,21 @@
       "name": "AuthCallback",
       "method": "GET",
       "path": "/api/v1/auth/callback"
+    },
+    {
+      "type": "api",
+      "name": "AuthCreateQuickCodeToken",
+      "method": "POST",
+      "path": "/api/v1/auth/quick-code/token",
+      "response": "GetAuthTokenFromQuickCode",
+      "body": "GetAuthTokenFromQuickCodeBody"
+    },
+    {
+      "type": "api",
+      "name": "AuthGetQuickCodeStatus",
+      "method": "GET",
+      "path": "/api/v1/auth/quick-code/status/:code",
+      "response": "AuthGetQuickCodeStatus"
     },
     {
       "type": "api",
@@ -287,13 +322,6 @@
       "method": "GET",
       "path": "/api/v1/auth/providers",
       "response": "GetAuthProviders"
-    },
-    {
-      "type": "api",
-      "name": "GetAuthTokenFromQuickCode",
-      "method": "GET",
-      "path": "/api/v1/auth/quick/token/:code",
-      "response": "GetAuthTokenFromQuickCode"
     },
     {
       "type": "api",

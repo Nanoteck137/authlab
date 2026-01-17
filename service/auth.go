@@ -59,13 +59,15 @@ var (
 	ErrAuthServiceRequestAlreadyExists = errors.New("AuthService: request already exists")
 	ErrAuthServiceRequestNotFound      = errors.New("AuthService: request not found")
 	ErrAuthServiceRequestExpired       = errors.New("AuthService: request is expired")
+	ErrAuthServiceRequestNotReady      = errors.New("AuthService: request is not ready")
+	ErrAuthServiceRequestInvalid       = errors.New("AuthService: request is invalid")
 )
 
 const (
 	AuthRequestExpireDuration   = 5 * time.Minute
 	AuthRequestDeletionDuration = 1 * time.Hour
 
-	AuthQuickRequestExpireDuration = 15 * time.Minute
+	AuthQuickRequestExpireDuration = 5 * time.Minute
 )
 
 type AuthRequestType string
@@ -82,6 +84,15 @@ const (
 	AuthRequestStatusCompleted AuthRequestStatus = "completed"
 	AuthRequestStatusExpired   AuthRequestStatus = "expired"
 	AuthRequestStatusFailed    AuthRequestStatus = "failed"
+)
+
+type AuthQuickRequestStatus string
+
+const (
+	AuthQuickRequestStatusPending   AuthQuickRequestStatus = "pending"
+	AuthQuickRequestStatusCompleted AuthQuickRequestStatus = "completed"
+	AuthQuickRequestStatusExpired   AuthQuickRequestStatus = "expired"
+	AuthQuickRequestStatusFailed    AuthQuickRequestStatus = "failed"
 )
 
 type AuthRequest struct {
@@ -175,6 +186,7 @@ func (p *AuthProvider) claim(ctx context.Context, code string) (providerClaim, e
 
 // TODO(patrik): Delete this when timer is out
 type AuthQuickRequest struct {
+	status    AuthQuickRequestStatus
 	code      string
 	requestId string
 	userId    string
@@ -305,6 +317,7 @@ func (a *AuthService) CreateQuickRequest() (QuickRequestResult, error) {
 
 	t := time.Now()
 	request := &AuthQuickRequest{
+		status:  AuthQuickRequestStatusPending,
 		code:    code,
 		expires: t.Add(AuthQuickRequestExpireDuration),
 	}
@@ -329,11 +342,14 @@ func (a *AuthService) CompleteQuickRequest(code, userId string) error {
 	}
 
 	if time.Now().After(request.expires) {
-		// request.Status = AuthRequestStatusExpired
+		request.status = AuthQuickRequestStatusExpired
 		return ErrAuthServiceRequestExpired
 	}
 
-	request.userId = userId
+	if request.status == AuthQuickRequestStatusPending {
+		request.status = AuthQuickRequestStatusCompleted
+		request.userId = userId
+	}
 
 	return nil
 }
@@ -370,27 +386,43 @@ func (a *AuthService) GetAuthCode(requestId string) (*string, error) {
 	return &request.OAuth2Code, nil
 }
 
-func (a *AuthService) GetAuthTokenForQuickCode(code string) (*string, error) {
+func (a *AuthService) CheckQuickRequestStatus(code string) (AuthQuickRequestStatus, error) {
 	request, exists := a.QuickRequests[code]
 	if !exists {
-		return nil, ErrAuthServiceRequestNotFound
+		return AuthQuickRequestStatusFailed, ErrAuthServiceRequestNotFound
 	}
 
-	// if request.Status != AuthRequestStatusCompleted {
-	// 	return nil, nil
-	// }
+	now := time.Now()
+	if now.After(request.expires) {
+		request.status = AuthQuickRequestStatusExpired
+	}
+
+	return request.status, nil
+}
+
+func (a *AuthService) GetAuthTokenForQuickCode(code string) (string, error) {
+	request, exists := a.QuickRequests[code]
+	if !exists {
+		return "", ErrAuthServiceRequestNotFound
+	}
+
+	if request.status != AuthQuickRequestStatusCompleted {
+		return "", ErrAuthServiceRequestInvalid
+	}
 
 	if request.userId == "" {
-		return nil, nil
+		return "", ErrAuthServiceRequestInvalid
 	}
+
+	request.status = AuthQuickRequestStatusExpired
 
 	// TODO(patrik): Check userId?
 	token, err := a.SignUserToken(request.userId)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	return &token, nil
+	return token, nil
 }
 
 func (a *AuthService) InvalidateRequest(requestId string) error {

@@ -12,6 +12,14 @@ export class ApiClient extends BaseApiClient {
   }
   
   
+  authCreateQuickCodeToken(body: api.GetAuthTokenFromQuickCodeBody, options?: ExtraOptions) {
+    return this.request("/api/v1/auth/quick-code/token", "POST", api.GetAuthTokenFromQuickCode, z.any(), body, options)
+  }
+  
+  authGetQuickCodeStatus(code: string, options?: ExtraOptions) {
+    return this.request(`/api/v1/auth/quick-code/status/${code}`, "GET", api.AuthGetQuickCodeStatus, z.any(), undefined, options)
+  }
+  
   authInitiate(providerId: string, options?: ExtraOptions) {
     return this.request(`/api/v1/auth/initiate/${providerId}`, "POST", api.AuthInitiate, z.any(), undefined, options)
   }
@@ -48,10 +56,6 @@ export class ApiClient extends BaseApiClient {
     return this.request("/api/v1/auth/providers", "GET", api.GetAuthProviders, z.any(), undefined, options)
   }
   
-  getAuthTokenFromQuickCode(code: string, options?: ExtraOptions) {
-    return this.request(`/api/v1/auth/quick/token/${code}`, "GET", api.GetAuthTokenFromQuickCode, z.any(), undefined, options)
-  }
-  
   getMe(options?: ExtraOptions) {
     return this.request("/api/v1/auth/me", "GET", api.GetMe, z.any(), undefined, options)
   }
@@ -74,6 +78,14 @@ export class ClientUrls {
   
   authCallback() {
     return createUrl(this.baseUrl, "/api/v1/auth/callback")
+  }
+  
+  authCreateQuickCodeToken() {
+    return createUrl(this.baseUrl, "/api/v1/auth/quick-code/token")
+  }
+  
+  authGetQuickCodeStatus(code: string) {
+    return createUrl(this.baseUrl, `/api/v1/auth/quick-code/status/${code}`)
   }
   
   authInitiate(providerId: string) {
@@ -110,10 +122,6 @@ export class ClientUrls {
   
   getAuthProviders() {
     return createUrl(this.baseUrl, "/api/v1/auth/providers")
-  }
-  
-  getAuthTokenFromQuickCode(code: string) {
-    return createUrl(this.baseUrl, `/api/v1/auth/quick/token/${code}`)
   }
   
   getMe() {

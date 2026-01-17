@@ -52,22 +52,40 @@
 
         if (!auth) return;
 
-        const res = await apiClient.getAuthTokenFromQuickCode(auth.code);
+        const res = await apiClient.authGetQuickCodeStatus(auth.code);
         if (!res.success) {
           clearInterval(pollInterval);
           // resolve({
           //   isSuccess: false,
           //   message: `authentication polling failed: ${res.error.message}`,
           // });
-          return;
+          return handleApiError(res.error);
         }
 
-        if (res.data.token) {
+        console.log("STATUS", res.data.status);
+
+        if (res.data.status === "completed") {
+          const res = await apiClient.authCreateQuickCodeToken({
+            code: auth.code,
+          });
+          if (!res.success) {
+            clearInterval(pollInterval);
+            auth = null;
+
+            return handleApiError(res.error);
+          }
+
           clearInterval(pollInterval);
           console.log("Token", res.data.token);
-
           localStorage.setItem("token", res.data.token);
           invalidateAll();
+        } else if (res.data.status === "pending") {
+        } else if (res.data.status === "expired") {
+          clearInterval(pollInterval);
+          auth = null;
+        } else {
+          clearInterval(pollInterval);
+          auth = null;
         }
       } catch (error) {
         clearInterval(pollInterval);

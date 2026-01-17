@@ -10,6 +10,13 @@ export const ApiToken = z.object({
 });
 export type ApiToken = z.infer<typeof ApiToken>;
 
+// Name: AuthGetQuickCodeStatus
+export const AuthGetQuickCodeStatus = z.object({
+  // Name: AuthGetQuickCodeStatus.status
+  "status": z.string(),
+});
+export type AuthGetQuickCodeStatus = z.infer<typeof AuthGetQuickCodeStatus>;
+
 // Name: AuthInitiate
 export const AuthInitiate = z.object({
   // Name: AuthInitiate.requestId
@@ -104,9 +111,16 @@ export type GetAuthProviders = z.infer<typeof GetAuthProviders>;
 // Name: GetAuthTokenFromQuickCode
 export const GetAuthTokenFromQuickCode = z.object({
   // Name: GetAuthTokenFromQuickCode.token
-  "token": z.string().nullable(),
+  "token": z.string(),
 });
 export type GetAuthTokenFromQuickCode = z.infer<typeof GetAuthTokenFromQuickCode>;
+
+// Name: GetAuthTokenFromQuickCodeBody
+export const GetAuthTokenFromQuickCodeBody = z.object({
+  // Name: GetAuthTokenFromQuickCodeBody.code
+  "code": z.string(),
+});
+export type GetAuthTokenFromQuickCodeBody = z.infer<typeof GetAuthTokenFromQuickCodeBody>;
 
 // Name: GetMe
 export const GetMe = z.object({

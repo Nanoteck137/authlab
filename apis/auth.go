@@ -61,7 +61,15 @@ type AuthLoginQuickCodeBody struct {
 }
 
 type GetAuthTokenFromQuickCode struct {
-	Token *string `json:"token"`
+	Token string `json:"token"`
+}
+
+type GetAuthTokenFromQuickCodeBody struct {
+	Code string `json:"code"`
+}
+
+type AuthGetQuickCodeStatus struct {
+	Status string `json:"status"`
 }
 
 func InstallAuthHandlers(app core.App, group pyrin.Group) {
@@ -280,10 +288,10 @@ func InstallAuthHandlers(app core.App, group pyrin.Group) {
 		},
 
 		pyrin.ApiHandler{
-			Name:         "GetAuthTokenFromQuickCode",
-			Path:         "/auth/quick/token/:code",
+			Name:         "AuthGetQuickCodeStatus",
+			Path:         "/auth/quick-code/status/:code",
 			Method:       http.MethodGet,
-			ResponseType: GetAuthTokenFromQuickCode{},
+			ResponseType: AuthGetQuickCodeStatus{},
 			HandlerFunc: func(c pyrin.Context) (any, error) {
 				code := c.Param("code")
 
@@ -292,7 +300,40 @@ func InstallAuthHandlers(app core.App, group pyrin.Group) {
 					return nil, err
 				}
 
-				token, err := authService.GetAuthTokenForQuickCode(code)
+				status, err := authService.CheckQuickRequestStatus(code)
+				if err != nil {
+					if errors.Is(err, service.ErrAuthServiceRequestNotFound) {
+						// TODO(patrik): Better error
+						return nil, errors.New("request not found")
+					}
+
+					return nil, err
+				}
+
+				return AuthGetQuickCodeStatus{
+					Status: string(status),
+				}, nil
+			},
+		},
+
+		pyrin.ApiHandler{
+			Name:         "AuthCreateQuickCodeToken",
+			Path:         "/auth/quick-code/token",
+			Method:       http.MethodPost,
+			ResponseType: GetAuthTokenFromQuickCode{},
+			BodyType:     GetAuthTokenFromQuickCodeBody{},
+			HandlerFunc: func(c pyrin.Context) (any, error) {
+				body, err := pyrin.Body[GetAuthTokenFromQuickCodeBody](c)
+				if err != nil {
+					return nil, err
+				}
+
+				authService, err := app.AuthService()
+				if err != nil {
+					return nil, err
+				}
+
+				token, err := authService.GetAuthTokenForQuickCode(body.Code)
 				if err != nil {
 					if errors.Is(err, service.ErrAuthServiceRequestNotFound) {
 						// TODO(patrik): Better error
