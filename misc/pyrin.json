@@ -27,6 +27,31 @@
       ]
     },
     {
+      "name": "AuthFinishProvider",
+      "fields": [
+        {
+          "name": "token",
+          "type": "string",
+          "omitEmpty": false
+        }
+      ]
+    },
+    {
+      "name": "AuthFinishProviderBody",
+      "fields": [
+        {
+          "name": "requestId",
+          "type": "string",
+          "omitEmpty": false
+        },
+        {
+          "name": "challenge",
+          "type": "string",
+          "omitEmpty": false
+        }
+      ]
+    },
+    {
       "name": "AuthFinishQuickConnect",
       "fields": [
         {
@@ -81,6 +106,21 @@
       "fields": [
         {
           "name": "status",
+          "type": "string",
+          "omitEmpty": false
+        }
+      ]
+    },
+    {
+      "name": "AuthGetQuickConnectStatusBody",
+      "fields": [
+        {
+          "name": "code",
+          "type": "string",
+          "omitEmpty": false
+        },
+        {
+          "name": "challenge",
           "type": "string",
           "omitEmpty": false
         }
@@ -192,31 +232,6 @@
       ]
     },
     {
-      "name": "GetAuthCode",
-      "fields": [
-        {
-          "name": "token",
-          "type": "string",
-          "omitEmpty": false
-        }
-      ]
-    },
-    {
-      "name": "GetAuthCodeBody",
-      "fields": [
-        {
-          "name": "requestId",
-          "type": "string",
-          "omitEmpty": false
-        },
-        {
-          "name": "challenge",
-          "type": "string",
-          "omitEmpty": false
-        }
-      ]
-    },
-    {
       "name": "GetAuthProviders",
       "fields": [
         {
@@ -277,7 +292,7 @@
       "type": "normal",
       "name": "AuthCallback",
       "method": "GET",
-      "path": "/api/v1/auth/callback"
+      "path": "/api/v1/auth/providers/callback"
     },
     {
       "type": "api",
@@ -291,8 +306,8 @@
       "name": "AuthFinishProvider",
       "method": "POST",
       "path": "/api/v1/auth/providers/finish",
-      "response": "GetAuthCode",
-      "body": "GetAuthCodeBody"
+      "response": "AuthFinishProvider",
+      "body": "AuthFinishProviderBody"
     },
     {
       "type": "api",
@@ -320,9 +335,10 @@
     {
       "type": "api",
       "name": "AuthGetQuickConnectStatus",
-      "method": "GET",
-      "path": "/api/v1/auth/quick-connect/status/:code",
-      "response": "AuthGetQuickConnectStatus"
+      "method": "POST",
+      "path": "/api/v1/auth/quick-connect/status",
+      "response": "AuthGetQuickConnectStatus",
+      "body": "AuthGetQuickConnectStatusBody"
     },
     {
       "type": "api",

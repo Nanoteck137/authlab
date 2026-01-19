@@ -17,6 +17,22 @@ export const AuthClaimQuickConnectCodeBody = z.object({
 });
 export type AuthClaimQuickConnectCodeBody = z.infer<typeof AuthClaimQuickConnectCodeBody>;
 
+// Name: AuthFinishProvider
+export const AuthFinishProvider = z.object({
+  // Name: AuthFinishProvider.token
+  "token": z.string(),
+});
+export type AuthFinishProvider = z.infer<typeof AuthFinishProvider>;
+
+// Name: AuthFinishProviderBody
+export const AuthFinishProviderBody = z.object({
+  // Name: AuthFinishProviderBody.requestId
+  "requestId": z.string(),
+  // Name: AuthFinishProviderBody.challenge
+  "challenge": z.string(),
+});
+export type AuthFinishProviderBody = z.infer<typeof AuthFinishProviderBody>;
+
 // Name: AuthFinishQuickConnect
 export const AuthFinishQuickConnect = z.object({
   // Name: AuthFinishQuickConnect.token
@@ -55,6 +71,15 @@ export const AuthGetQuickConnectStatus = z.object({
   "status": z.string(),
 });
 export type AuthGetQuickConnectStatus = z.infer<typeof AuthGetQuickConnectStatus>;
+
+// Name: AuthGetQuickConnectStatusBody
+export const AuthGetQuickConnectStatusBody = z.object({
+  // Name: AuthGetQuickConnectStatusBody.code
+  "code": z.string(),
+  // Name: AuthGetQuickConnectStatusBody.challenge
+  "challenge": z.string(),
+});
+export type AuthGetQuickConnectStatusBody = z.infer<typeof AuthGetQuickConnectStatusBody>;
 
 // Name: AuthInitiate
 export const AuthInitiate = z.object({
@@ -118,22 +143,6 @@ export const GetAllApiTokens = z.object({
   "tokens": z.array(ApiToken),
 });
 export type GetAllApiTokens = z.infer<typeof GetAllApiTokens>;
-
-// Name: GetAuthCode
-export const GetAuthCode = z.object({
-  // Name: GetAuthCode.token
-  "token": z.string(),
-});
-export type GetAuthCode = z.infer<typeof GetAuthCode>;
-
-// Name: GetAuthCodeBody
-export const GetAuthCodeBody = z.object({
-  // Name: GetAuthCodeBody.requestId
-  "requestId": z.string(),
-  // Name: GetAuthCodeBody.challenge
-  "challenge": z.string(),
-});
-export type GetAuthCodeBody = z.infer<typeof GetAuthCodeBody>;
 
 // Name: GetAuthProviders
 export const GetAuthProviders = z.object({

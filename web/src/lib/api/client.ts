@@ -16,8 +16,8 @@ export class ApiClient extends BaseApiClient {
     return this.request("/api/v1/auth/quick-connect/claim", "POST", z.undefined(), z.any(), body, options)
   }
   
-  authFinishProvider(body: api.GetAuthCodeBody, options?: ExtraOptions) {
-    return this.request("/api/v1/auth/providers/finish", "POST", api.GetAuthCode, z.any(), body, options)
+  authFinishProvider(body: api.AuthFinishProviderBody, options?: ExtraOptions) {
+    return this.request("/api/v1/auth/providers/finish", "POST", api.AuthFinishProvider, z.any(), body, options)
   }
   
   authFinishQuickConnect(body: api.AuthFinishQuickConnectBody, options?: ExtraOptions) {
@@ -32,8 +32,8 @@ export class ApiClient extends BaseApiClient {
     return this.request("/api/v1/auth/providers", "GET", api.GetAuthProviders, z.any(), undefined, options)
   }
   
-  authGetQuickConnectStatus(code: string, options?: ExtraOptions) {
-    return this.request(`/api/v1/auth/quick-connect/status/${code}`, "GET", api.AuthGetQuickConnectStatus, z.any(), undefined, options)
+  authGetQuickConnectStatus(body: api.AuthGetQuickConnectStatusBody, options?: ExtraOptions) {
+    return this.request("/api/v1/auth/quick-connect/status", "POST", api.AuthGetQuickConnectStatus, z.any(), body, options)
   }
   
   authProviderInitiate(body: api.AuthInitiateBody, options?: ExtraOptions) {
@@ -77,7 +77,7 @@ export class ClientUrls {
   }
   
   authCallback() {
-    return createUrl(this.baseUrl, "/api/v1/auth/callback")
+    return createUrl(this.baseUrl, "/api/v1/auth/providers/callback")
   }
   
   authClaimQuickConnectCode() {
@@ -100,8 +100,8 @@ export class ClientUrls {
     return createUrl(this.baseUrl, "/api/v1/auth/providers")
   }
   
-  authGetQuickConnectStatus(code: string) {
-    return createUrl(this.baseUrl, `/api/v1/auth/quick-connect/status/${code}`)
+  authGetQuickConnectStatus() {
+    return createUrl(this.baseUrl, "/api/v1/auth/quick-connect/status")
   }
   
   authProviderInitiate() {

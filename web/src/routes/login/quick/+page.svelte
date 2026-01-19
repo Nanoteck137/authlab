@@ -53,7 +53,10 @@
 
         if (!auth) return;
 
-        const res = await apiClient.authGetQuickConnectStatus(auth.code);
+        const res = await apiClient.authGetQuickConnectStatus({
+          code: auth.code,
+          challenge: auth.challenge,
+        });
         if (!res.success) {
           clearInterval(pollInterval);
           // resolve({

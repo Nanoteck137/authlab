@@ -397,9 +397,13 @@ func (a *AuthService) CheckRequestStatus(requestId, challenge string) (AuthReque
 	return request.Status, nil
 }
 
-func (a *AuthService) CheckQuickConnectRequestStatus(code string) (AuthQuickRequestStatus, error) {
-	request, exists := a.QuickConnectRequests[code]
+func (a *AuthService) CheckQuickConnectRequestStatus(requestCode, challenge string) (AuthQuickRequestStatus, error) {
+	request, exists := a.QuickConnectRequests[requestCode]
 	if !exists {
+		return AuthQuickRequestStatusFailed, ErrAuthServiceRequestNotFound
+	}
+
+	if request.challenge != challenge {
 		return AuthQuickRequestStatusFailed, ErrAuthServiceRequestNotFound
 	}
 

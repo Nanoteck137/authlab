@@ -83,6 +83,11 @@ type AuthGetQuickConnectStatus struct {
 	Status string `json:"status"`
 }
 
+type AuthGetQuickConnectStatusBody struct {
+	Code      string `json:"code"`
+	Challenge string `json:"challenge"`
+}
+
 type AuthGetProviderStatus struct {
 	Status string `json:"status"`
 }
@@ -222,8 +227,6 @@ func InstallAuthHandlers(app core.App, group pyrin.Group) {
 			},
 		},
 
-		// TODO(patrik): Convert to POST request and change to use
-		// body to send the data
 		pyrin.ApiHandler{
 			Name:         "AuthGetProviderStatus",
 			Path:         "/auth/provider/status",
@@ -315,22 +318,24 @@ func InstallAuthHandlers(app core.App, group pyrin.Group) {
 			},
 		},
 
-		// TODO(patrik): Convert to POST request and change to use
-		// body to send the data
 		pyrin.ApiHandler{
 			Name:         "AuthGetQuickConnectStatus",
-			Path:         "/auth/quick-connect/status/:code",
-			Method:       http.MethodGet,
+			Path:         "/auth/quick-connect/status",
+			Method:       http.MethodPost,
 			ResponseType: AuthGetQuickConnectStatus{},
+			BodyType:     AuthGetQuickConnectStatusBody{},
 			HandlerFunc: func(c pyrin.Context) (any, error) {
-				code := c.Param("code")
+				body, err := pyrin.Body[AuthGetQuickConnectStatusBody](c)
+				if err != nil {
+					return nil, err
+				}
 
 				authService, err := app.AuthService()
 				if err != nil {
 					return nil, err
 				}
 
-				status, err := authService.CheckQuickConnectRequestStatus(code)
+				status, err := authService.CheckQuickConnectRequestStatus(body.Code, body.Challenge)
 				if err != nil {
 					if errors.Is(err, service.ErrAuthServiceRequestNotFound) {
 						// TODO(patrik): Better error
