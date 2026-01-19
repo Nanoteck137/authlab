@@ -38,8 +38,8 @@
         if (form.valid) {
           const formData = form.data;
 
-          const res = await apiClient.authLoginQuickCode({
-            quickCode: formData.code,
+          const res = await apiClient.authClaimQuickConnectCode({
+            code: formData.code,
           });
           if (!res.success) {
             return handleApiError(res.error);

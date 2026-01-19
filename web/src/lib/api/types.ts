@@ -10,12 +10,51 @@ export const ApiToken = z.object({
 });
 export type ApiToken = z.infer<typeof ApiToken>;
 
-// Name: AuthGetQuickCodeStatus
-export const AuthGetQuickCodeStatus = z.object({
-  // Name: AuthGetQuickCodeStatus.status
+// Name: AuthClaimQuickConnectCodeBody
+export const AuthClaimQuickConnectCodeBody = z.object({
+  // Name: AuthClaimQuickConnectCodeBody.code
+  "code": z.string(),
+});
+export type AuthClaimQuickConnectCodeBody = z.infer<typeof AuthClaimQuickConnectCodeBody>;
+
+// Name: AuthFinishQuickConnect
+export const AuthFinishQuickConnect = z.object({
+  // Name: AuthFinishQuickConnect.token
+  "token": z.string(),
+});
+export type AuthFinishQuickConnect = z.infer<typeof AuthFinishQuickConnect>;
+
+// Name: AuthFinishQuickConnectBody
+export const AuthFinishQuickConnectBody = z.object({
+  // Name: AuthFinishQuickConnectBody.code
+  "code": z.string(),
+  // Name: AuthFinishQuickConnectBody.challenge
+  "challenge": z.string(),
+});
+export type AuthFinishQuickConnectBody = z.infer<typeof AuthFinishQuickConnectBody>;
+
+// Name: AuthGetProviderStatus
+export const AuthGetProviderStatus = z.object({
+  // Name: AuthGetProviderStatus.status
   "status": z.string(),
 });
-export type AuthGetQuickCodeStatus = z.infer<typeof AuthGetQuickCodeStatus>;
+export type AuthGetProviderStatus = z.infer<typeof AuthGetProviderStatus>;
+
+// Name: AuthGetProviderStatusBody
+export const AuthGetProviderStatusBody = z.object({
+  // Name: AuthGetProviderStatusBody.requestId
+  "requestId": z.string(),
+  // Name: AuthGetProviderStatusBody.challenge
+  "challenge": z.string(),
+});
+export type AuthGetProviderStatusBody = z.infer<typeof AuthGetProviderStatusBody>;
+
+// Name: AuthGetQuickConnectStatus
+export const AuthGetQuickConnectStatus = z.object({
+  // Name: AuthGetQuickConnectStatus.status
+  "status": z.string(),
+});
+export type AuthGetQuickConnectStatus = z.infer<typeof AuthGetQuickConnectStatus>;
 
 // Name: AuthInitiate
 export const AuthInitiate = z.object({
@@ -27,24 +66,6 @@ export const AuthInitiate = z.object({
   "expiresAt": z.string(),
 });
 export type AuthInitiate = z.infer<typeof AuthInitiate>;
-
-// Name: AuthInitiateQuick
-export const AuthInitiateQuick = z.object({
-  // Name: AuthInitiateQuick.code
-  "code": z.string(),
-  // Name: AuthInitiateQuick.authUrl
-  "authUrl": z.string(),
-  // Name: AuthInitiateQuick.expiresAt
-  "expiresAt": z.string(),
-});
-export type AuthInitiateQuick = z.infer<typeof AuthInitiateQuick>;
-
-// Name: AuthLoginQuickCodeBody
-export const AuthLoginQuickCodeBody = z.object({
-  // Name: AuthLoginQuickCodeBody.quickCode
-  "quickCode": z.string(),
-});
-export type AuthLoginQuickCodeBody = z.infer<typeof AuthLoginQuickCodeBody>;
 
 // Name: AuthLoginWithCode
 export const AuthLoginWithCode = z.object({
@@ -73,6 +94,19 @@ export const AuthProvider = z.object({
 });
 export type AuthProvider = z.infer<typeof AuthProvider>;
 
+// Name: AuthQuickConnectInitiate
+export const AuthQuickConnectInitiate = z.object({
+  // Name: AuthQuickConnectInitiate.code
+  "code": z.string(),
+  // Name: AuthQuickConnectInitiate.challenge
+  "challenge": z.string(),
+  // Name: AuthQuickConnectInitiate.authUrl
+  "authUrl": z.string(),
+  // Name: AuthQuickConnectInitiate.expiresAt
+  "expiresAt": z.string(),
+});
+export type AuthQuickConnectInitiate = z.infer<typeof AuthQuickConnectInitiate>;
+
 // Name: CreateApiToken
 export const CreateApiToken = z.object({
   // Name: CreateApiToken.token
@@ -97,7 +131,7 @@ export type GetAllApiTokens = z.infer<typeof GetAllApiTokens>;
 // Name: GetAuthCode
 export const GetAuthCode = z.object({
   // Name: GetAuthCode.code
-  "code": z.string().nullable(),
+  "code": z.string(),
 });
 export type GetAuthCode = z.infer<typeof GetAuthCode>;
 
@@ -107,20 +141,6 @@ export const GetAuthProviders = z.object({
   "providers": z.array(AuthProvider),
 });
 export type GetAuthProviders = z.infer<typeof GetAuthProviders>;
-
-// Name: GetAuthTokenFromQuickCode
-export const GetAuthTokenFromQuickCode = z.object({
-  // Name: GetAuthTokenFromQuickCode.token
-  "token": z.string(),
-});
-export type GetAuthTokenFromQuickCode = z.infer<typeof GetAuthTokenFromQuickCode>;
-
-// Name: GetAuthTokenFromQuickCodeBody
-export const GetAuthTokenFromQuickCodeBody = z.object({
-  // Name: GetAuthTokenFromQuickCodeBody.code
-  "code": z.string(),
-});
-export type GetAuthTokenFromQuickCodeBody = z.infer<typeof GetAuthTokenFromQuickCodeBody>;
 
 // Name: GetMe
 export const GetMe = z.object({

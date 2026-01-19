@@ -1,21 +1,22 @@
 <script lang="ts">
   import { invalidateAll } from "$app/navigation";
   import { getApiClient, handleApiError } from "$lib";
-  import type { AuthInitiateQuick } from "$lib/api/types.js";
+  import type { AuthQuickConnectInitiate } from "$lib/api/types.js";
   import { onMount } from "svelte";
 
   const { data } = $props();
   const apiClient = getApiClient();
 
-  let auth = $state<AuthInitiateQuick | null>(null);
+  let auth = $state<AuthQuickConnectInitiate | null>(null);
 
   async function test() {
-    const res = await apiClient.authInitiateQuick();
+    const res = await apiClient.authQuickConnectInitiate();
     if (!res.success) {
       return handleApiError(res.error);
     }
 
     auth = res.data;
+    console.log(auth);
   }
 
   // onMount(() => {
@@ -52,7 +53,7 @@
 
         if (!auth) return;
 
-        const res = await apiClient.authGetQuickCodeStatus(auth.code);
+        const res = await apiClient.authGetQuickConnectStatus(auth.code);
         if (!res.success) {
           clearInterval(pollInterval);
           // resolve({
@@ -65,8 +66,9 @@
         console.log("STATUS", res.data.status);
 
         if (res.data.status === "completed") {
-          const res = await apiClient.authCreateQuickCodeToken({
+          const res = await apiClient.authFinishQuickConnect({
             code: auth.code,
+            challenge: auth.challenge,
           });
           if (!res.success) {
             clearInterval(pollInterval);

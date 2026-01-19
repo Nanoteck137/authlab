@@ -12,28 +12,32 @@ export class ApiClient extends BaseApiClient {
   }
   
   
-  authCreateQuickCodeToken(body: api.GetAuthTokenFromQuickCodeBody, options?: ExtraOptions) {
-    return this.request("/api/v1/auth/quick-code/token", "POST", api.GetAuthTokenFromQuickCode, z.any(), body, options)
+  authClaimQuickConnectCode(body: api.AuthClaimQuickConnectCodeBody, options?: ExtraOptions) {
+    return this.request("/api/v1/auth/quick-connect/claim", "POST", z.undefined(), z.any(), body, options)
   }
   
-  authGetQuickCodeStatus(code: string, options?: ExtraOptions) {
-    return this.request(`/api/v1/auth/quick-code/status/${code}`, "GET", api.AuthGetQuickCodeStatus, z.any(), undefined, options)
+  authFinishQuickConnect(body: api.AuthFinishQuickConnectBody, options?: ExtraOptions) {
+    return this.request("/api/v1/auth/quick-connect/finish", "POST", api.AuthFinishQuickConnect, z.any(), body, options)
+  }
+  
+  authGetProviderStatus(body: api.AuthGetProviderStatusBody, options?: ExtraOptions) {
+    return this.request("/api/v1/auth/provider/status", "POST", api.AuthGetProviderStatus, z.any(), body, options)
+  }
+  
+  authGetQuickConnectStatus(code: string, options?: ExtraOptions) {
+    return this.request(`/api/v1/auth/quick-connect/status/${code}`, "GET", api.AuthGetQuickConnectStatus, z.any(), undefined, options)
   }
   
   authInitiate(providerId: string, options?: ExtraOptions) {
     return this.request(`/api/v1/auth/initiate/${providerId}`, "POST", api.AuthInitiate, z.any(), undefined, options)
   }
   
-  authInitiateQuick(options?: ExtraOptions) {
-    return this.request("/api/v1/auth/initiate/quick", "POST", api.AuthInitiateQuick, z.any(), undefined, options)
-  }
-  
-  authLoginQuickCode(body: api.AuthLoginQuickCodeBody, options?: ExtraOptions) {
-    return this.request("/api/v1/auth/login-quick-code", "POST", z.undefined(), z.any(), body, options)
-  }
-  
   authLoginWithCode(body: api.AuthLoginWithCodeBody, options?: ExtraOptions) {
     return this.request("/api/v1/auth/login-with-code", "POST", api.AuthLoginWithCode, z.any(), body, options)
+  }
+  
+  authQuickConnectInitiate(options?: ExtraOptions) {
+    return this.request("/api/v1/auth/quick-connect/initiate", "POST", api.AuthQuickConnectInitiate, z.any(), undefined, options)
   }
   
   createApiToken(body: api.CreateApiTokenBody, options?: ExtraOptions) {
@@ -80,28 +84,32 @@ export class ClientUrls {
     return createUrl(this.baseUrl, "/api/v1/auth/callback")
   }
   
-  authCreateQuickCodeToken() {
-    return createUrl(this.baseUrl, "/api/v1/auth/quick-code/token")
+  authClaimQuickConnectCode() {
+    return createUrl(this.baseUrl, "/api/v1/auth/quick-connect/claim")
   }
   
-  authGetQuickCodeStatus(code: string) {
-    return createUrl(this.baseUrl, `/api/v1/auth/quick-code/status/${code}`)
+  authFinishQuickConnect() {
+    return createUrl(this.baseUrl, "/api/v1/auth/quick-connect/finish")
+  }
+  
+  authGetProviderStatus() {
+    return createUrl(this.baseUrl, "/api/v1/auth/provider/status")
+  }
+  
+  authGetQuickConnectStatus(code: string) {
+    return createUrl(this.baseUrl, `/api/v1/auth/quick-connect/status/${code}`)
   }
   
   authInitiate(providerId: string) {
     return createUrl(this.baseUrl, `/api/v1/auth/initiate/${providerId}`)
   }
   
-  authInitiateQuick() {
-    return createUrl(this.baseUrl, "/api/v1/auth/initiate/quick")
-  }
-  
-  authLoginQuickCode() {
-    return createUrl(this.baseUrl, "/api/v1/auth/login-quick-code")
-  }
-  
   authLoginWithCode() {
     return createUrl(this.baseUrl, "/api/v1/auth/login-with-code")
+  }
+  
+  authQuickConnectInitiate() {
+    return createUrl(this.baseUrl, "/api/v1/auth/quick-connect/initiate")
   }
   
   createApiToken() {

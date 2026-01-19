@@ -324,8 +324,9 @@ func (a *AuthService) CreateQuickConnectRequest() (QuickConnectRequestResult, er
 	a.QuickConnectRequests[code] = request
 
 	return QuickConnectRequestResult{
-		Code:    code,
-		Expires: request.expires,
+		Code:      request.code,
+		Challenge: request.challenge,
+		Expires:   request.expires,
 	}, nil
 }
 
@@ -367,17 +368,31 @@ func (a *AuthService) CompleteRequest(requestId, code string) error {
 	return nil
 }
 
-func (a *AuthService) GetAuthCode(requestId string) (*string, error) {
+func (a *AuthService) GetAuthCode(requestId string) (string, error) {
 	request, exists := a.Requests[requestId]
 	if !exists {
-		return nil, ErrAuthServiceRequestNotFound
+		return "", ErrAuthServiceRequestNotFound
 	}
 
 	if request.Status != AuthRequestStatusCompleted {
-		return nil, nil
+		return "", ErrAuthServiceRequestNotReady
 	}
 
-	return &request.OAuth2Code, nil
+	return request.OAuth2Code, nil
+}
+
+func (a *AuthService) CheckRequestStatus(requestId string) (AuthRequestStatus, error) {
+	request, exists := a.Requests[requestId]
+	if !exists {
+		return AuthRequestStatusFailed, ErrAuthServiceRequestNotFound
+	}
+
+	now := time.Now()
+	if now.After(request.Expires) {
+		request.Status = AuthRequestStatusExpired
+	}
+
+	return request.Status, nil
 }
 
 func (a *AuthService) CheckQuickConnectRequestStatus(code string) (AuthQuickRequestStatus, error) {
@@ -394,9 +409,13 @@ func (a *AuthService) CheckQuickConnectRequestStatus(code string) (AuthQuickRequ
 	return request.status, nil
 }
 
-func (a *AuthService) CreateAuthTokenForQuickConnect(requestCode string) (string, error) {
+func (a *AuthService) CreateAuthTokenForQuickConnect(requestCode, challenge string) (string, error) {
 	request, exists := a.QuickConnectRequests[requestCode]
 	if !exists {
+		return "", ErrAuthServiceRequestNotFound
+	}
+
+	if request.challenge != challenge {
 		return "", ErrAuthServiceRequestNotFound
 	}
 

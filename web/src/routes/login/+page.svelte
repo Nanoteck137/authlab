@@ -50,7 +50,10 @@
             return;
           }
 
-          const res = await apiClient.getAuthCode(requestId);
+          const res = await apiClient.authGetProviderStatus({
+            requestId: requestId,
+            challenge: "",
+          });
           if (!res.success) {
             clearInterval(pollInterval);
             resolve({
@@ -60,6 +63,7 @@
             return;
           }
 
+          /*
           if (res.data.code) {
             clearInterval(pollInterval);
 
@@ -71,29 +75,48 @@
               state: requestId,
             });
           }
+            */
 
-          // if (res.data.status === "completed") {
-          // } else if (res.data.status === "failed") {
-          //   clearInterval(pollInterval);
-          //   resolve({
-          //     isSuccess: false,
-          //     message: `authentication failed for unknown reason`,
-          //   });
-          // } else if (res.data.status === "expired") {
-          //   clearInterval(pollInterval);
-          //   resolve({
-          //     isSuccess: false,
-          //     message: `authentication session expired`,
-          //   });
-          // } else if (res.data.status === "pending") {
-          //   return;
-          // } else {
-          //   clearInterval(pollInterval);
-          //   resolve({
-          //     isSuccess: false,
-          //     message: `authentication failed for unknown reason`,
-          //   });
-          // }
+          if (res.data.status === "completed") {
+            clearInterval(pollInterval);
+
+            const res = await apiClient.getAuthCode(requestId);
+            if (!res.success) {
+              resolve({
+                isSuccess: false,
+                message: `authentication failed to get code: ${res.error.message}`,
+              });
+              return;
+            }
+
+            win?.close();
+
+            resolve({
+              isSuccess: true,
+              code: res.data.code,
+              state: requestId,
+            });
+          } else if (res.data.status === "failed") {
+            clearInterval(pollInterval);
+            resolve({
+              isSuccess: false,
+              message: `authentication failed for unknown reason`,
+            });
+          } else if (res.data.status === "expired") {
+            clearInterval(pollInterval);
+            resolve({
+              isSuccess: false,
+              message: `authentication session expired`,
+            });
+          } else if (res.data.status === "pending") {
+            return;
+          } else {
+            clearInterval(pollInterval);
+            resolve({
+              isSuccess: false,
+              message: `authentication failed for unknown reason`,
+            });
+          }
         } catch (error) {
           clearInterval(pollInterval);
           console.error("auth catch error", error);

@@ -17,7 +17,67 @@
       ]
     },
     {
-      "name": "AuthGetQuickCodeStatus",
+      "name": "AuthClaimQuickConnectCodeBody",
+      "fields": [
+        {
+          "name": "code",
+          "type": "string",
+          "omitEmpty": false
+        }
+      ]
+    },
+    {
+      "name": "AuthFinishQuickConnect",
+      "fields": [
+        {
+          "name": "token",
+          "type": "string",
+          "omitEmpty": false
+        }
+      ]
+    },
+    {
+      "name": "AuthFinishQuickConnectBody",
+      "fields": [
+        {
+          "name": "code",
+          "type": "string",
+          "omitEmpty": false
+        },
+        {
+          "name": "challenge",
+          "type": "string",
+          "omitEmpty": false
+        }
+      ]
+    },
+    {
+      "name": "AuthGetProviderStatus",
+      "fields": [
+        {
+          "name": "status",
+          "type": "string",
+          "omitEmpty": false
+        }
+      ]
+    },
+    {
+      "name": "AuthGetProviderStatusBody",
+      "fields": [
+        {
+          "name": "requestId",
+          "type": "string",
+          "omitEmpty": false
+        },
+        {
+          "name": "challenge",
+          "type": "string",
+          "omitEmpty": false
+        }
+      ]
+    },
+    {
+      "name": "AuthGetQuickConnectStatus",
       "fields": [
         {
           "name": "status",
@@ -41,36 +101,6 @@
         },
         {
           "name": "expiresAt",
-          "type": "string",
-          "omitEmpty": false
-        }
-      ]
-    },
-    {
-      "name": "AuthInitiateQuick",
-      "fields": [
-        {
-          "name": "code",
-          "type": "string",
-          "omitEmpty": false
-        },
-        {
-          "name": "authUrl",
-          "type": "string",
-          "omitEmpty": false
-        },
-        {
-          "name": "expiresAt",
-          "type": "string",
-          "omitEmpty": false
-        }
-      ]
-    },
-    {
-      "name": "AuthLoginQuickCodeBody",
-      "fields": [
-        {
-          "name": "quickCode",
           "type": "string",
           "omitEmpty": false
         }
@@ -122,6 +152,31 @@
       ]
     },
     {
+      "name": "AuthQuickConnectInitiate",
+      "fields": [
+        {
+          "name": "code",
+          "type": "string",
+          "omitEmpty": false
+        },
+        {
+          "name": "challenge",
+          "type": "string",
+          "omitEmpty": false
+        },
+        {
+          "name": "authUrl",
+          "type": "string",
+          "omitEmpty": false
+        },
+        {
+          "name": "expiresAt",
+          "type": "string",
+          "omitEmpty": false
+        }
+      ]
+    },
+    {
       "name": "CreateApiToken",
       "fields": [
         {
@@ -156,7 +211,7 @@
       "fields": [
         {
           "name": "code",
-          "type": "*string",
+          "type": "string",
           "omitEmpty": false
         }
       ]
@@ -167,26 +222,6 @@
         {
           "name": "providers",
           "type": "[]AuthProvider",
-          "omitEmpty": false
-        }
-      ]
-    },
-    {
-      "name": "GetAuthTokenFromQuickCode",
-      "fields": [
-        {
-          "name": "token",
-          "type": "string",
-          "omitEmpty": false
-        }
-      ]
-    },
-    {
-      "name": "GetAuthTokenFromQuickCodeBody",
-      "fields": [
-        {
-          "name": "code",
-          "type": "string",
           "omitEmpty": false
         }
       ]
@@ -246,18 +281,33 @@
     },
     {
       "type": "api",
-      "name": "AuthCreateQuickCodeToken",
+      "name": "AuthClaimQuickConnectCode",
       "method": "POST",
-      "path": "/api/v1/auth/quick-code/token",
-      "response": "GetAuthTokenFromQuickCode",
-      "body": "GetAuthTokenFromQuickCodeBody"
+      "path": "/api/v1/auth/quick-connect/claim",
+      "body": "AuthClaimQuickConnectCodeBody"
     },
     {
       "type": "api",
-      "name": "AuthGetQuickCodeStatus",
+      "name": "AuthFinishQuickConnect",
+      "method": "POST",
+      "path": "/api/v1/auth/quick-connect/finish",
+      "response": "AuthFinishQuickConnect",
+      "body": "AuthFinishQuickConnectBody"
+    },
+    {
+      "type": "api",
+      "name": "AuthGetProviderStatus",
+      "method": "POST",
+      "path": "/api/v1/auth/provider/status",
+      "response": "AuthGetProviderStatus",
+      "body": "AuthGetProviderStatusBody"
+    },
+    {
+      "type": "api",
+      "name": "AuthGetQuickConnectStatus",
       "method": "GET",
-      "path": "/api/v1/auth/quick-code/status/:code",
-      "response": "AuthGetQuickCodeStatus"
+      "path": "/api/v1/auth/quick-connect/status/:code",
+      "response": "AuthGetQuickConnectStatus"
     },
     {
       "type": "api",
@@ -268,25 +318,18 @@
     },
     {
       "type": "api",
-      "name": "AuthInitiateQuick",
-      "method": "POST",
-      "path": "/api/v1/auth/initiate/quick",
-      "response": "AuthInitiateQuick"
-    },
-    {
-      "type": "api",
-      "name": "AuthLoginQuickCode",
-      "method": "POST",
-      "path": "/api/v1/auth/login-quick-code",
-      "body": "AuthLoginQuickCodeBody"
-    },
-    {
-      "type": "api",
       "name": "AuthLoginWithCode",
       "method": "POST",
       "path": "/api/v1/auth/login-with-code",
       "response": "AuthLoginWithCode",
       "body": "AuthLoginWithCodeBody"
+    },
+    {
+      "type": "api",
+      "name": "AuthQuickConnectInitiate",
+      "method": "POST",
+      "path": "/api/v1/auth/quick-connect/initiate",
+      "response": "AuthQuickConnectInitiate"
     },
     {
       "type": "api",
