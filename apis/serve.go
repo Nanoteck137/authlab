@@ -21,6 +21,7 @@ func RegisterHandlers(app core.App, router pyrin.Router) {
 			Method:      http.MethodGet,
 			Path:        "/static/*",
 			HandlerFunc: func(c pyrin.Context) error {
+				// TODO(patrik): Fix this
 				f := os.DirFS("./render/static")
 				fs := http.StripPrefix("/static", http.FileServerFS(f))
 
