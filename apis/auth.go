@@ -1,7 +1,6 @@
 package apis
 
 import (
-	"context"
 	"errors"
 	"net/http"
 	"sort"
@@ -24,7 +23,12 @@ type GetMe struct {
 type AuthInitiate struct {
 	RequestId string `json:"requestId"`
 	AuthUrl   string `json:"authUrl"`
+	Challenge string `json:"challenge"`
 	ExpiresAt string `json:"expiresAt"`
+}
+
+type AuthInitiateBody struct {
+	ProviderId string `json:"providerId"`
 }
 
 type AuthQuickConnectInitiate struct {
@@ -44,8 +48,13 @@ type AuthLoginWithCodeBody struct {
 	State      string `json:"state"`
 }
 
-type GetAuthCode struct {
-	Code string `json:"code"`
+type AuthFinishProvider struct {
+	Token string `json:"token"`
+}
+
+type AuthFinishProviderBody struct {
+	RequestId string `json:"requestId"`
+	Challenge string `json:"challenge"`
 }
 
 type AuthProvider struct {
@@ -74,11 +83,11 @@ type AuthGetQuickConnectStatus struct {
 	Status string `json:"status"`
 }
 
-type AuthGetProviderStatus struct{
+type AuthGetProviderStatus struct {
 	Status string `json:"status"`
 }
 
-type AuthGetProviderStatusBody struct{
+type AuthGetProviderStatusBody struct {
 	RequestId string `json:"requestId"`
 	Challenge string `json:"challenge"`
 }
@@ -87,7 +96,7 @@ func InstallAuthHandlers(app core.App, group pyrin.Group) {
 	// NOTE(patrik): Provider Authentication
 	group.Register(
 		pyrin.ApiHandler{
-			Name:         "GetAuthProviders",
+			Name:         "AuthGetProviders",
 			Method:       http.MethodGet,
 			Path:         "/auth/providers",
 			ResponseType: GetAuthProviders{},
@@ -114,19 +123,23 @@ func InstallAuthHandlers(app core.App, group pyrin.Group) {
 		},
 
 		pyrin.ApiHandler{
-			Name:         "AuthInitiate",
+			Name:         "AuthProviderInitiate",
 			Method:       http.MethodPost,
-			Path:         "/auth/initiate/:providerId",
+			Path:         "/auth/providers/initiate",
 			ResponseType: AuthInitiate{},
+			BodyType:     AuthInitiateBody{},
 			HandlerFunc: func(c pyrin.Context) (any, error) {
-				providerId := c.Param("providerId")
+				body, err := pyrin.Body[AuthInitiateBody](c)
+				if err != nil {
+					return nil, err
+				}
 
 				authService, err := app.AuthService()
 				if err != nil {
 					return nil, err
 				}
 
-				res, err := authService.CreateNormalRequest(providerId)
+				res, err := authService.CreateNormalRequest(body.ProviderId)
 				if err != nil {
 					return nil, err
 				}
@@ -134,47 +147,8 @@ func InstallAuthHandlers(app core.App, group pyrin.Group) {
 				return AuthInitiate{
 					RequestId: res.RequestId,
 					AuthUrl:   res.AuthUrl,
+					Challenge: res.Challenge,
 					ExpiresAt: res.Expires.Format(time.RFC3339Nano),
-				}, nil
-			},
-		},
-
-		pyrin.ApiHandler{
-			Name:         "AuthLoginWithCode",
-			Method:       http.MethodPost,
-			Path:         "/auth/login-with-code",
-			ResponseType: AuthLoginWithCode{},
-			BodyType:     AuthLoginWithCodeBody{},
-			HandlerFunc: func(c pyrin.Context) (any, error) {
-				body, err := pyrin.Body[AuthLoginWithCodeBody](c)
-				if err != nil {
-					return nil, err
-				}
-
-				ctx := context.TODO()
-
-				authService, err := app.AuthService()
-				if err != nil {
-					return nil, err
-				}
-
-				userId, err := authService.GetUserFromCode(ctx, body.ProviderId, body.Code)
-				if err != nil {
-					return nil, err
-				}
-
-				err = authService.InvalidateRequest(body.State)
-				if err != nil {
-					return nil, err
-				}
-
-				token, err := authService.SignUserToken(userId)
-				if err != nil {
-					return nil, err
-				}
-
-				return AuthLoginWithCode{
-					Token: token,
 				}, nil
 			},
 		},
@@ -182,7 +156,7 @@ func InstallAuthHandlers(app core.App, group pyrin.Group) {
 		pyrin.NormalHandler{
 			Name:   "AuthCallback",
 			Method: http.MethodGet,
-			Path:   "/auth/callback",
+			Path:   "/auth/providers/callback",
 			HandlerFunc: func(c pyrin.Context) error {
 				url := c.Request().URL
 				state := url.Query().Get("state")
@@ -216,32 +190,34 @@ func InstallAuthHandlers(app core.App, group pyrin.Group) {
 		},
 
 		pyrin.ApiHandler{
-			Name:         "GetAuthCode",
-			Path:         "/auth/code/:requestId",
-			Method:       http.MethodGet,
-			ResponseType: GetAuthCode{},
+			Name:         "AuthFinishProvider",
+			Path:         "/auth/providers/finish",
+			Method:       http.MethodPost,
+			ResponseType: AuthFinishProvider{},
+			BodyType:     AuthFinishProviderBody{},
 			HandlerFunc: func(c pyrin.Context) (any, error) {
-				requestId := c.Param("requestId")
+				body, err := pyrin.Body[AuthFinishProviderBody](c)
+				if err != nil {
+					return nil, err
+				}
 
 				authService, err := app.AuthService()
 				if err != nil {
 					return nil, err
 				}
 
-				code, err := authService.GetAuthCode(requestId)
+				token, err := authService.CreateAuthTokenForProvider(body.RequestId, body.Challenge)
 				if err != nil {
 					if errors.Is(err, service.ErrAuthServiceRequestNotFound) {
 						// TODO(patrik): Better error
 						return nil, errors.New("request not found")
 					}
 
-					// TODO(patrik): handle ErrAuthServiceRequestNotReady
-
 					return nil, err
 				}
 
-				return GetAuthCode{
-					Code: code,
+				return AuthFinishProvider{
+					Token: token,
 				}, nil
 			},
 		},
@@ -265,8 +241,7 @@ func InstallAuthHandlers(app core.App, group pyrin.Group) {
 					return nil, err
 				}
 
-				// TODO(patrik): Check challenge
-				status, err := authService.CheckRequestStatus(body.RequestId)
+				status, err := authService.CheckRequestStatus(body.RequestId, body.Challenge)
 				if err != nil {
 					if errors.Is(err, service.ErrAuthServiceRequestNotFound) {
 						// TODO(patrik): Better error

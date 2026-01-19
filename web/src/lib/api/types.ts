@@ -62,28 +62,19 @@ export const AuthInitiate = z.object({
   "requestId": z.string(),
   // Name: AuthInitiate.authUrl
   "authUrl": z.string(),
+  // Name: AuthInitiate.challenge
+  "challenge": z.string(),
   // Name: AuthInitiate.expiresAt
   "expiresAt": z.string(),
 });
 export type AuthInitiate = z.infer<typeof AuthInitiate>;
 
-// Name: AuthLoginWithCode
-export const AuthLoginWithCode = z.object({
-  // Name: AuthLoginWithCode.token
-  "token": z.string(),
-});
-export type AuthLoginWithCode = z.infer<typeof AuthLoginWithCode>;
-
-// Name: AuthLoginWithCodeBody
-export const AuthLoginWithCodeBody = z.object({
-  // Name: AuthLoginWithCodeBody.providerId
+// Name: AuthInitiateBody
+export const AuthInitiateBody = z.object({
+  // Name: AuthInitiateBody.providerId
   "providerId": z.string(),
-  // Name: AuthLoginWithCodeBody.code
-  "code": z.string(),
-  // Name: AuthLoginWithCodeBody.state
-  "state": z.string(),
 });
-export type AuthLoginWithCodeBody = z.infer<typeof AuthLoginWithCodeBody>;
+export type AuthInitiateBody = z.infer<typeof AuthInitiateBody>;
 
 // Name: AuthProvider
 export const AuthProvider = z.object({
@@ -130,10 +121,19 @@ export type GetAllApiTokens = z.infer<typeof GetAllApiTokens>;
 
 // Name: GetAuthCode
 export const GetAuthCode = z.object({
-  // Name: GetAuthCode.code
-  "code": z.string(),
+  // Name: GetAuthCode.token
+  "token": z.string(),
 });
 export type GetAuthCode = z.infer<typeof GetAuthCode>;
+
+// Name: GetAuthCodeBody
+export const GetAuthCodeBody = z.object({
+  // Name: GetAuthCodeBody.requestId
+  "requestId": z.string(),
+  // Name: GetAuthCodeBody.challenge
+  "challenge": z.string(),
+});
+export type GetAuthCodeBody = z.infer<typeof GetAuthCodeBody>;
 
 // Name: GetAuthProviders
 export const GetAuthProviders = z.object({

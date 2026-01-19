@@ -8,7 +8,7 @@ export const load: PageLoad = async ({ parent }) => {
     throw redirect(303, "/");
   }
 
-  const providers = await data.apiClient.getAuthProviders();
+  const providers = await data.apiClient.authGetProviders();
   if (!providers.success) {
     throw error(providers.error.code, { message: providers.error.message });
   }

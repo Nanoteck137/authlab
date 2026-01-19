@@ -111,8 +111,11 @@ type AuthRequest struct {
 	Id         string
 	ProviderId string
 
+	// TODO(patrik): Remove
 	Type   AuthRequestType
 	Status AuthRequestStatus
+
+	challenge string
 
 	OAuth2Url  string
 	OAuth2Code string
@@ -245,6 +248,7 @@ func NewAuthService(db *database.Database, jwtSecret string) *AuthService {
 type RequestResult struct {
 	RequestId string
 	AuthUrl   string
+	Challenge string
 	Expires   time.Time
 }
 
@@ -257,6 +261,11 @@ func (a *AuthService) CreateNormalRequest(providerId string) (RequestResult, err
 		return RequestResult{}, errors.New("provider not found")
 	}
 
+	challenge, err := GenerateAuthChallenge()
+	if err != nil {
+		return RequestResult{}, fmt.Errorf("failed to generate challenge: %w", err)
+	}
+
 	id := utils.CreateId()
 
 	t := time.Now()
@@ -265,6 +274,7 @@ func (a *AuthService) CreateNormalRequest(providerId string) (RequestResult, err
 		ProviderId: provider.Id,
 		Type:       AuthRequestTypeNormal,
 		Status:     AuthRequestStatusPending,
+		challenge:  challenge,
 		Expires:    t.Add(AuthRequestExpireDuration),
 		Delete:     t.Add(AuthRequestDeletionDuration),
 	}
@@ -283,6 +293,7 @@ func (a *AuthService) CreateNormalRequest(providerId string) (RequestResult, err
 	return RequestResult{
 		RequestId: id,
 		AuthUrl:   authUrl,
+		Challenge: request.challenge,
 		Expires:   request.Expires,
 	}, nil
 }
@@ -368,22 +379,13 @@ func (a *AuthService) CompleteRequest(requestId, code string) error {
 	return nil
 }
 
-func (a *AuthService) GetAuthCode(requestId string) (string, error) {
+func (a *AuthService) CheckRequestStatus(requestId, challenge string) (AuthRequestStatus, error) {
 	request, exists := a.Requests[requestId]
 	if !exists {
-		return "", ErrAuthServiceRequestNotFound
+		return AuthRequestStatusFailed, ErrAuthServiceRequestNotFound
 	}
 
-	if request.Status != AuthRequestStatusCompleted {
-		return "", ErrAuthServiceRequestNotReady
-	}
-
-	return request.OAuth2Code, nil
-}
-
-func (a *AuthService) CheckRequestStatus(requestId string) (AuthRequestStatus, error) {
-	request, exists := a.Requests[requestId]
-	if !exists {
+	if request.challenge != challenge {
 		return AuthRequestStatusFailed, ErrAuthServiceRequestNotFound
 	}
 
@@ -407,6 +409,44 @@ func (a *AuthService) CheckQuickConnectRequestStatus(code string) (AuthQuickRequ
 	}
 
 	return request.status, nil
+}
+
+func (a *AuthService) CreateAuthTokenForProvider(requestId, challenge string) (string, error) {
+	request, exists := a.Requests[requestId]
+	if !exists {
+		return "", ErrAuthServiceRequestNotFound
+	}
+
+	if request.challenge != challenge {
+		return "", ErrAuthServiceRequestNotFound
+	}
+
+	if request.Status != AuthRequestStatusCompleted {
+		return "", ErrAuthServiceRequestNotReady
+	}
+
+	provider := a.providers[request.ProviderId]
+
+	code := request.OAuth2Code
+
+	userId, err := a.getUserFromCode(context.TODO(), provider, code)
+	if err != nil {
+		return "", err
+	}
+
+	if userId == "" {
+		return "", ErrAuthServiceRequestInvalid
+	}
+
+	request.Status = AuthRequestStatusExpired
+
+	// TODO(patrik): Check userId?
+	token, err := a.SignUserToken(userId)
+	if err != nil {
+		return "", err
+	}
+
+	return token, nil
 }
 
 func (a *AuthService) CreateAuthTokenForQuickConnect(requestCode, challenge string) (string, error) {
@@ -438,24 +478,7 @@ func (a *AuthService) CreateAuthTokenForQuickConnect(requestCode, challenge stri
 	return token, nil
 }
 
-func (a *AuthService) InvalidateRequest(requestId string) error {
-	request, exists := a.Requests[requestId]
-	if !exists {
-		return ErrAuthServiceRequestNotFound
-	}
-
-	request.Status = AuthRequestStatusExpired
-
-	return nil
-}
-
-func (a *AuthService) GetUserFromCode(ctx context.Context, providerId, code string) (string, error) {
-	provider, exists := a.providers[providerId]
-	if !exists {
-		// TODO(patrik): Fix error
-		return "", errors.New("provider not found")
-	}
-
+func (a *AuthService) getUserFromCode(ctx context.Context, provider *AuthProvider, code string) (string, error) {
 	oidcClaims, err := provider.claim(ctx, code)
 	if err != nil {
 		return "", err
@@ -490,7 +513,7 @@ func (a *AuthService) GetUserFromCode(ctx context.Context, providerId, code stri
 		return user.Id, nil
 	}
 
-	identity, err := a.db.GetUserIdentity(ctx, providerId, oidcClaims.Sub)
+	identity, err := a.db.GetUserIdentity(ctx, provider.Id, oidcClaims.Sub)
 	if err != nil {
 		if errors.Is(err, database.ErrItemNotFound) {
 			userId, err := getOrCreateUser()
@@ -499,7 +522,7 @@ func (a *AuthService) GetUserFromCode(ctx context.Context, providerId, code stri
 			}
 
 			err = a.db.CreateUserIdentity(ctx, database.CreateUserIdentityParams{
-				Provider:   providerId,
+				Provider:   provider.Id,
 				ProviderId: oidcClaims.Sub,
 				UserId:     userId,
 			})

@@ -100,6 +100,11 @@
           "omitEmpty": false
         },
         {
+          "name": "challenge",
+          "type": "string",
+          "omitEmpty": false
+        },
+        {
           "name": "expiresAt",
           "type": "string",
           "omitEmpty": false
@@ -107,30 +112,10 @@
       ]
     },
     {
-      "name": "AuthLoginWithCode",
-      "fields": [
-        {
-          "name": "token",
-          "type": "string",
-          "omitEmpty": false
-        }
-      ]
-    },
-    {
-      "name": "AuthLoginWithCodeBody",
+      "name": "AuthInitiateBody",
       "fields": [
         {
           "name": "providerId",
-          "type": "string",
-          "omitEmpty": false
-        },
-        {
-          "name": "code",
-          "type": "string",
-          "omitEmpty": false
-        },
-        {
-          "name": "state",
           "type": "string",
           "omitEmpty": false
         }
@@ -210,7 +195,22 @@
       "name": "GetAuthCode",
       "fields": [
         {
-          "name": "code",
+          "name": "token",
+          "type": "string",
+          "omitEmpty": false
+        }
+      ]
+    },
+    {
+      "name": "GetAuthCodeBody",
+      "fields": [
+        {
+          "name": "requestId",
+          "type": "string",
+          "omitEmpty": false
+        },
+        {
+          "name": "challenge",
           "type": "string",
           "omitEmpty": false
         }
@@ -288,6 +288,14 @@
     },
     {
       "type": "api",
+      "name": "AuthFinishProvider",
+      "method": "POST",
+      "path": "/api/v1/auth/providers/finish",
+      "response": "GetAuthCode",
+      "body": "GetAuthCodeBody"
+    },
+    {
+      "type": "api",
       "name": "AuthFinishQuickConnect",
       "method": "POST",
       "path": "/api/v1/auth/quick-connect/finish",
@@ -304,6 +312,13 @@
     },
     {
       "type": "api",
+      "name": "AuthGetProviders",
+      "method": "GET",
+      "path": "/api/v1/auth/providers",
+      "response": "GetAuthProviders"
+    },
+    {
+      "type": "api",
       "name": "AuthGetQuickConnectStatus",
       "method": "GET",
       "path": "/api/v1/auth/quick-connect/status/:code",
@@ -311,18 +326,11 @@
     },
     {
       "type": "api",
-      "name": "AuthInitiate",
+      "name": "AuthProviderInitiate",
       "method": "POST",
-      "path": "/api/v1/auth/initiate/:providerId",
-      "response": "AuthInitiate"
-    },
-    {
-      "type": "api",
-      "name": "AuthLoginWithCode",
-      "method": "POST",
-      "path": "/api/v1/auth/login-with-code",
-      "response": "AuthLoginWithCode",
-      "body": "AuthLoginWithCodeBody"
+      "path": "/api/v1/auth/providers/initiate",
+      "response": "AuthInitiate",
+      "body": "AuthInitiateBody"
     },
     {
       "type": "api",
@@ -351,20 +359,6 @@
       "method": "GET",
       "path": "/api/v1/user/apitoken",
       "response": "GetAllApiTokens"
-    },
-    {
-      "type": "api",
-      "name": "GetAuthCode",
-      "method": "GET",
-      "path": "/api/v1/auth/code/:requestId",
-      "response": "GetAuthCode"
-    },
-    {
-      "type": "api",
-      "name": "GetAuthProviders",
-      "method": "GET",
-      "path": "/api/v1/auth/providers",
-      "response": "GetAuthProviders"
     },
     {
       "type": "api",

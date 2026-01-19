@@ -11,4 +11,4 @@ name = "<PROVIDER_NAME>"
 client_id = "<OIDC_CLIENT_ID>"
 client_secret = "<OIDC_CLIENT_SECRET>"
 issuer_url = "<OIDC_ISSUER_URL>"
-redirect_url = "<ADDRESS_TO_API>/api/v1/auth/callback" # Example: https://customdomain.com/api/v1/auth/callback
+redirect_url = "<ADDRESS_TO_API>/api/v1/auth/providers/callback" # Example: https://customdomain.com/api/v1/auth/providers/callback

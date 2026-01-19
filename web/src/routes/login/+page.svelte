@@ -9,8 +9,7 @@
 
   type LoginSuccess = {
     isSuccess: true;
-    code: string;
-    state: string;
+    token: string;
   };
   type LoginError = {
     isSuccess: false;
@@ -19,7 +18,7 @@
   type LoginResult = LoginSuccess | LoginError;
 
   async function loginWithPolling(providerId: string): Promise<LoginResult> {
-    const res = await apiClient.authInitiate(providerId);
+    const res = await apiClient.authProviderInitiate({ providerId });
     if (!res.success) {
       handleApiError(res.error);
       return Promise.resolve({
@@ -28,7 +27,7 @@
       });
     }
 
-    const { requestId, expiresAt, authUrl } = res.data;
+    const { requestId, challenge, expiresAt, authUrl } = res.data;
 
     console.log("Request ID:", requestId);
     console.log("Opening authentication window...");
@@ -52,7 +51,7 @@
 
           const res = await apiClient.authGetProviderStatus({
             requestId: requestId,
-            challenge: "",
+            challenge: challenge,
           });
           if (!res.success) {
             clearInterval(pollInterval);
@@ -80,7 +79,10 @@
           if (res.data.status === "completed") {
             clearInterval(pollInterval);
 
-            const res = await apiClient.getAuthCode(requestId);
+            const res = await apiClient.authFinishProvider({
+              requestId,
+              challenge,
+            });
             if (!res.success) {
               resolve({
                 isSuccess: false,
@@ -93,8 +95,7 @@
 
             resolve({
               isSuccess: true,
-              code: res.data.code,
-              state: requestId,
+              token: res.data.token,
             });
           } else if (res.data.status === "failed") {
             clearInterval(pollInterval);
@@ -133,26 +134,15 @@
 {#each data.providers as provider}
   <Button
     onclick={async () => {
-      const login = await loginWithPolling(provider.id);
-      if (!login.isSuccess) {
-        toast.error(`login failed: ${login.message}`);
+      const res = await loginWithPolling(provider.id);
+      if (!res.isSuccess) {
+        toast.error(`login failed: ${res.message}`);
         return;
       }
 
-      console.log("login", login);
+      console.log("login", res);
 
-      const res = await apiClient.authLoginWithCode({
-        providerId: provider.id,
-        code: login.code,
-        state: login.state,
-      });
-      if (!res.success) {
-        return handleApiError(res.error);
-      }
-
-      console.log(res);
-
-      localStorage.setItem("token", res.data.token);
+      localStorage.setItem("token", res.token);
       invalidateAll();
     }}
   >
