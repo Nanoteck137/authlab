@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -202,6 +203,8 @@ type AuthQuickConnectRequest struct {
 }
 
 type AuthService struct {
+	mu sync.Mutex
+
 	db        *database.Database
 	jwtSecret string
 
@@ -241,6 +244,9 @@ type ProviderRequestResult struct {
 }
 
 func (a *AuthService) CreateProviderRequest(providerId string) (ProviderRequestResult, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
 	provider, exists := a.providers[providerId]
 	if !exists {
 		return ProviderRequestResult{}, ErrAuthServiceProviderNotFound
@@ -268,20 +274,18 @@ func (a *AuthService) CreateProviderRequest(providerId string) (ProviderRequestR
 		Delete:     t.Add(AuthProviderRequestDeletionDuration),
 	}
 
+	request.OAuth2Url = provider.oauth2Config.AuthCodeURL(request.Id)
+
 	_, exists = a.ProviderRequests[id]
 	if exists {
 		return ProviderRequestResult{}, ErrAuthServiceRequestAlreadyExists
 	}
 
-	authUrl := provider.oauth2Config.AuthCodeURL(request.Id)
-
-	request.OAuth2Url = authUrl
-
 	a.ProviderRequests[id] = request
 
 	return ProviderRequestResult{
-		RequestId: id,
-		AuthUrl:   authUrl,
+		RequestId: request.Id,
+		AuthUrl:   request.OAuth2Url,
 		Challenge: request.challenge,
 		Expires:   request.Expires,
 	}, nil
@@ -294,8 +298,6 @@ type QuickConnectRequestResult struct {
 }
 
 func (a *AuthService) CreateQuickConnectRequest() (QuickConnectRequestResult, error) {
-	// TODO(patrik): Add init check?
-
 	code, err := utils.GenerateCode()
 	if err != nil {
 		return QuickConnectRequestResult{}, fmt.Errorf("failed to generate code: %w", err)
@@ -315,6 +317,9 @@ func (a *AuthService) CreateQuickConnectRequest() (QuickConnectRequestResult, er
 		delete:    t.Add(AuthQuickRequestDeletionDuration),
 	}
 
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
 	_, exists := a.QuickConnectRequests[code]
 	if exists {
 		return QuickConnectRequestResult{}, err
@@ -330,6 +335,9 @@ func (a *AuthService) CreateQuickConnectRequest() (QuickConnectRequestResult, er
 }
 
 func (a *AuthService) CompleteQuickConnectRequest(requestCode, userId string) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
 	request, exists := a.QuickConnectRequests[requestCode]
 	if !exists {
 		return ErrAuthServiceRequestNotFound
@@ -349,6 +357,9 @@ func (a *AuthService) CompleteQuickConnectRequest(requestCode, userId string) er
 }
 
 func (a *AuthService) CompleteProviderRequest(requestId, code string) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
 	request, exists := a.ProviderRequests[requestId]
 	if !exists {
 		return ErrAuthServiceRequestNotFound
@@ -368,6 +379,9 @@ func (a *AuthService) CompleteProviderRequest(requestId, code string) error {
 }
 
 func (a *AuthService) CheckProviderRequestStatus(requestId, challenge string) (AuthProviderRequestStatus, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
 	request, exists := a.ProviderRequests[requestId]
 	if !exists {
 		return AuthProviderRequestStatusFailed, ErrAuthServiceRequestNotFound
@@ -387,6 +401,9 @@ func (a *AuthService) CheckProviderRequestStatus(requestId, challenge string) (A
 }
 
 func (a *AuthService) CheckQuickConnectRequestStatus(requestCode, challenge string) (AuthQuickRequestStatus, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
 	request, exists := a.QuickConnectRequests[requestCode]
 	if !exists {
 		return AuthQuickRequestStatusFailed, ErrAuthServiceRequestNotFound
@@ -405,6 +422,9 @@ func (a *AuthService) CheckQuickConnectRequestStatus(requestCode, challenge stri
 }
 
 func (a *AuthService) CreateAuthTokenForProvider(requestId, challenge string) (string, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
 	request, exists := a.ProviderRequests[requestId]
 	if !exists {
 		return "", ErrAuthServiceRequestNotFound
@@ -434,7 +454,6 @@ func (a *AuthService) CreateAuthTokenForProvider(requestId, challenge string) (s
 
 	request.Status = AuthProviderRequestStatusExpired
 
-	// TODO(patrik): Check userId?
 	token, err := a.SignUserToken(userId)
 	if err != nil {
 		return "", err
@@ -444,6 +463,9 @@ func (a *AuthService) CreateAuthTokenForProvider(requestId, challenge string) (s
 }
 
 func (a *AuthService) CreateAuthTokenForQuickConnect(requestCode, challenge string) (string, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
 	request, exists := a.QuickConnectRequests[requestCode]
 	if !exists {
 		return "", ErrAuthServiceRequestNotFound
@@ -463,7 +485,6 @@ func (a *AuthService) CreateAuthTokenForQuickConnect(requestCode, challenge stri
 
 	request.status = AuthQuickRequestStatusExpired
 
-	// TODO(patrik): Check userId?
 	token, err := a.SignUserToken(request.userId)
 	if err != nil {
 		return "", err
@@ -532,6 +553,7 @@ func (a *AuthService) getUserFromCode(ctx context.Context, provider *AuthProvide
 }
 
 func (a *AuthService) SignUserToken(userId string) (string, error) {
+	// TODO(patrik): Errors
 	user, err := a.db.GetUserById(context.Background(), userId)
 	if err != nil {
 		return "", err
@@ -552,6 +574,9 @@ func (a *AuthService) SignUserToken(userId string) (string, error) {
 }
 
 func (a *AuthService) RemoveUnusedEntries() {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
 	now := time.Now()
 	for k, request := range a.ProviderRequests {
 		if now.After(request.Delete) {
