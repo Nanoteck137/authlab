@@ -140,12 +140,9 @@ func InstallAuthHandlers(app core.App, group pyrin.Group) {
 					return nil, err
 				}
 
-				authService, err := app.AuthService()
-				if err != nil {
-					return nil, err
-				}
+				authService := app.AuthService()
 
-				res, err := authService.CreateNormalRequest(body.ProviderId)
+				res, err := authService.CreateProviderRequest(body.ProviderId)
 				if err != nil {
 					return nil, err
 				}
@@ -168,12 +165,9 @@ func InstallAuthHandlers(app core.App, group pyrin.Group) {
 				state := url.Query().Get("state")
 				code := url.Query().Get("code")
 
-				authService, err := app.AuthService()
-				if err != nil {
-					return err
-				}
+				authService := app.AuthService()
 
-				err = authService.CompleteRequest(state, code)
+				err := authService.CompleteProviderRequest(state, code)
 				if err != nil {
 					if errors.Is(err, service.ErrAuthServiceRequestExpired) {
 						render.RenderCallbackRequestExpired(c.Response())
@@ -207,10 +201,7 @@ func InstallAuthHandlers(app core.App, group pyrin.Group) {
 					return nil, err
 				}
 
-				authService, err := app.AuthService()
-				if err != nil {
-					return nil, err
-				}
+				authService := app.AuthService()
 
 				token, err := authService.CreateAuthTokenForProvider(body.RequestId, body.Challenge)
 				if err != nil {
@@ -240,12 +231,9 @@ func InstallAuthHandlers(app core.App, group pyrin.Group) {
 					return nil, err
 				}
 
-				authService, err := app.AuthService()
-				if err != nil {
-					return nil, err
-				}
+				authService := app.AuthService()
 
-				status, err := authService.CheckRequestStatus(body.RequestId, body.Challenge)
+				status, err := authService.CheckProviderRequestStatus(body.RequestId, body.Challenge)
 				if err != nil {
 					fmt.Printf("err: %v\n", err)
 					if errors.Is(err, service.ErrAuthServiceRequestNotFound) {
@@ -271,10 +259,7 @@ func InstallAuthHandlers(app core.App, group pyrin.Group) {
 			Path:         "/auth/quick-connect/initiate",
 			ResponseType: AuthQuickConnectInitiate{},
 			HandlerFunc: func(c pyrin.Context) (any, error) {
-				authService, err := app.AuthService()
-				if err != nil {
-					return nil, err
-				}
+				authService := app.AuthService()
 
 				res, err := authService.CreateQuickConnectRequest()
 				if err != nil {
@@ -306,10 +291,7 @@ func InstallAuthHandlers(app core.App, group pyrin.Group) {
 					return nil, err
 				}
 
-				authService, err := app.AuthService()
-				if err != nil {
-					return nil, err
-				}
+				authService := app.AuthService()
 
 				err = authService.CompleteQuickConnectRequest(body.Code, user.Id)
 				if err != nil {
@@ -332,10 +314,7 @@ func InstallAuthHandlers(app core.App, group pyrin.Group) {
 					return nil, err
 				}
 
-				authService, err := app.AuthService()
-				if err != nil {
-					return nil, err
-				}
+				authService := app.AuthService()
 
 				status, err := authService.CheckQuickConnectRequestStatus(body.Code, body.Challenge)
 				if err != nil {
@@ -365,10 +344,7 @@ func InstallAuthHandlers(app core.App, group pyrin.Group) {
 					return nil, err
 				}
 
-				authService, err := app.AuthService()
-				if err != nil {
-					return nil, err
-				}
+				authService := app.AuthService()
 
 				token, err := authService.CreateAuthTokenForQuickConnect(body.Code, body.Challenge)
 				if err != nil {

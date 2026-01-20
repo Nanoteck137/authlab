@@ -13,7 +13,7 @@ type App interface {
 	DB() *database.Database
 	Config() *config.Config
 
-	AuthService() (*service.AuthService, error)
+	AuthService() *service.AuthService
 
 	WorkDir() types.WorkDir
 

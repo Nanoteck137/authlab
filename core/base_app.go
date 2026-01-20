@@ -1,10 +1,6 @@
 package core
 
 import (
-	"context"
-	"crypto/rand"
-	"encoding/base64"
-
 	"github.com/nanoteck137/authlab/config"
 	"github.com/nanoteck137/authlab/database"
 	"github.com/nanoteck137/authlab/service"
@@ -20,13 +16,8 @@ type BaseApp struct {
 	authService *service.AuthService
 }
 
-func (app *BaseApp) AuthService() (*service.AuthService, error) {
-	err := app.authService.Init(context.Background(), app.config)
-	if err != nil {
-		return nil, err
-	}
-
-	return app.authService, nil
+func (app *BaseApp) AuthService() *service.AuthService {
+	return app.authService
 }
 
 func (app *BaseApp) DB() *database.Database {
@@ -39,12 +30,6 @@ func (app *BaseApp) Config() *config.Config {
 
 func (app *BaseApp) WorkDir() types.WorkDir {
 	return app.config.WorkDir()
-}
-
-func generateRandomState() string {
-	b := make([]byte, 32)
-	rand.Read(b)
-	return base64.URLEncoding.EncodeToString(b)
 }
 
 func (app *BaseApp) Bootstrap() error {
@@ -73,7 +58,9 @@ func (app *BaseApp) Bootstrap() error {
 		}
 	}
 
-	app.authService = service.NewAuthService(app.db, app.config.JwtSecret)
+	app.authService = service.NewAuthService(app.db, app.config)
+	// TODO(patrik): This should be a worker
+	go app.authService.CleanRoutine()
 
 	return nil
 }

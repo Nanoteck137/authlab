@@ -9,7 +9,6 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/kr/pretty"
 	"github.com/nanoteck137/authlab/config"
 	"github.com/nanoteck137/authlab/database"
 	"github.com/nanoteck137/authlab/tools/utils"
@@ -31,7 +30,7 @@ type ServiceErrCreator struct {
 
 func NewServiceErrCreator(service string) ServiceErrCreator {
 	return ServiceErrCreator{
-		Service:    service,
+		Service: service,
 	}
 }
 
@@ -49,9 +48,11 @@ func (s *ServiceErrCreator) Errorf(format string, a ...any) error {
 	}
 }
 
-var authErr = NewServiceErrCreator("auth-service") 
+var authErr = NewServiceErrCreator("auth-service")
 
 var (
+	ErrAuthServiceProviderNotFound = authErr.Error("provider not found")
+
 	ErrAuthServiceRequestAlreadyExists = authErr.Error("request already exists")
 	ErrAuthServiceRequestNotFound      = authErr.Error("request not found")
 	ErrAuthServiceRequestExpired       = authErr.Error("request is expired")
@@ -60,20 +61,20 @@ var (
 )
 
 const (
-	AuthRequestExpireDuration   = 5 * time.Minute
-	AuthRequestDeletionDuration = AuthRequestExpireDuration + 10*time.Minute
+	AuthProviderRequestExpireDuration   = 5 * time.Minute
+	AuthProviderRequestDeletionDuration = AuthProviderRequestExpireDuration + 10*time.Minute
 
 	AuthQuickRequestExpireDuration   = 5 * time.Minute
 	AuthQuickRequestDeletionDuration = AuthQuickRequestExpireDuration + 10*time.Minute
 )
 
-type AuthRequestStatus string
+type AuthProviderRequestStatus string
 
 const (
-	AuthRequestStatusPending   AuthRequestStatus = "pending"
-	AuthRequestStatusCompleted AuthRequestStatus = "completed"
-	AuthRequestStatusExpired   AuthRequestStatus = "expired"
-	AuthRequestStatusFailed    AuthRequestStatus = "failed"
+	AuthProviderRequestStatusPending   AuthProviderRequestStatus = "pending"
+	AuthProviderRequestStatusCompleted AuthProviderRequestStatus = "completed"
+	AuthProviderRequestStatusExpired   AuthProviderRequestStatus = "expired"
+	AuthProviderRequestStatusFailed    AuthProviderRequestStatus = "failed"
 )
 
 type AuthQuickRequestStatus string
@@ -85,11 +86,12 @@ const (
 	AuthQuickRequestStatusFailed    AuthQuickRequestStatus = "failed"
 )
 
-type AuthRequest struct {
+// TODO(patrik): Change the fields to private
+type AuthProviderRequest struct {
 	Id         string
 	ProviderId string
 
-	Status AuthRequestStatus
+	Status AuthProviderRequestStatus
 
 	challenge string
 
@@ -103,31 +105,41 @@ type AuthRequest struct {
 }
 
 type AuthProvider struct {
+	initialized bool
+
 	Id          string
 	DisplayName string
+
+	config config.ConfigOidcProvider
 
 	provider     *oidc.Provider
 	oauth2Config *oauth2.Config
 	verifier     *oidc.IDTokenVerifier
 }
 
-func (p *AuthProvider) init(ctx context.Context, config config.ConfigOidcProvider) error {
+func (p *AuthProvider) init(ctx context.Context) error {
+	if p.initialized {
+		return nil
+	}
+
 	var err error
 
-	p.provider, err = oidc.NewProvider(ctx, config.IssuerUrl)
+	p.provider, err = oidc.NewProvider(ctx, p.config.IssuerUrl)
 	if err != nil {
-		return fmt.Errorf("oidc provider: %w", err)
+		return err
 	}
 
 	p.oauth2Config = &oauth2.Config{
-		ClientID:     config.ClientId,
-		ClientSecret: config.ClientSecret,
-		RedirectURL:  config.RedirectUrl,
+		ClientID:     p.config.ClientId,
+		ClientSecret: p.config.ClientSecret,
+		RedirectURL:  p.config.RedirectUrl,
 		Endpoint:     p.provider.Endpoint(),
 		Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
 	}
 
-	p.verifier = p.provider.Verifier(&oidc.Config{ClientID: config.ClientId})
+	p.verifier = p.provider.Verifier(&oidc.Config{ClientID: p.config.ClientId})
+
+	p.initialized = true
 
 	return nil
 }
@@ -193,70 +205,81 @@ type AuthService struct {
 	db        *database.Database
 	jwtSecret string
 
-	initialized bool
-
 	providers map[string]*AuthProvider
 
-	Requests             map[string]*AuthRequest
+	ProviderRequests     map[string]*AuthProviderRequest
 	QuickConnectRequests map[string]*AuthQuickConnectRequest
 }
 
-func NewAuthService(db *database.Database, jwtSecret string) *AuthService {
+func NewAuthService(db *database.Database, config *config.Config) *AuthService {
+	providers := make(map[string]*AuthProvider, len(config.OidcProviders))
+
+	for id, providerConfig := range config.OidcProviders {
+		res := &AuthProvider{
+			Id:          id,
+			DisplayName: providerConfig.Name,
+			config:      providerConfig,
+		}
+
+		providers[id] = res
+	}
+
 	return &AuthService{
 		db:                   db,
-		jwtSecret:            jwtSecret,
-		initialized:          false,
-		providers:            make(map[string]*AuthProvider),
-		Requests:             make(map[string]*AuthRequest),
+		jwtSecret:            config.JwtSecret,
+		providers:            providers,
+		ProviderRequests:     make(map[string]*AuthProviderRequest),
 		QuickConnectRequests: make(map[string]*AuthQuickConnectRequest),
 	}
 }
 
-type RequestResult struct {
+type ProviderRequestResult struct {
 	RequestId string
 	AuthUrl   string
 	Challenge string
 	Expires   time.Time
 }
 
-func (a *AuthService) CreateNormalRequest(providerId string) (RequestResult, error) {
-	// TODO(patrik): Add init check?
-
+func (a *AuthService) CreateProviderRequest(providerId string) (ProviderRequestResult, error) {
 	provider, exists := a.providers[providerId]
 	if !exists {
-		// TODO(patrik): Better error
-		return RequestResult{}, errors.New("provider not found")
+		return ProviderRequestResult{}, ErrAuthServiceProviderNotFound
+	}
+
+	err := provider.init(context.TODO())
+	if err != nil {
+		return ProviderRequestResult{}, authErr.Errorf("initialize AuthProvider(%s): %w", provider.Id, err)
 	}
 
 	challenge, err := utils.GenerateAuthChallenge()
 	if err != nil {
-		return RequestResult{}, fmt.Errorf("failed to generate challenge: %w", err)
+		return ProviderRequestResult{}, authErr.Errorf("generate auth challenge: %w", err)
 	}
 
 	id := utils.CreateId()
 
 	t := time.Now()
-	request := &AuthRequest{
+	request := &AuthProviderRequest{
 		Id:         id,
 		ProviderId: provider.Id,
-		Status:     AuthRequestStatusPending,
+		Status:     AuthProviderRequestStatusPending,
 		challenge:  challenge,
-		Expires:    t.Add(AuthRequestExpireDuration),
-		Delete:     t.Add(AuthRequestDeletionDuration),
+		Expires:    t.Add(AuthProviderRequestExpireDuration),
+		Delete:     t.Add(AuthProviderRequestDeletionDuration),
 	}
 
-	_, exists = a.Requests[id]
+	_, exists = a.ProviderRequests[id]
 	if exists {
-		return RequestResult{}, ErrAuthServiceRequestAlreadyExists
+		return ProviderRequestResult{}, ErrAuthServiceRequestAlreadyExists
 	}
 
 	authUrl := provider.oauth2Config.AuthCodeURL(request.Id)
 
 	request.OAuth2Url = authUrl
 
-	a.Requests[id] = request
+	a.ProviderRequests[id] = request
 
-	return RequestResult{
+	return ProviderRequestResult{
 		RequestId: id,
 		AuthUrl:   authUrl,
 		Challenge: request.challenge,
@@ -325,38 +348,39 @@ func (a *AuthService) CompleteQuickConnectRequest(requestCode, userId string) er
 	return nil
 }
 
-func (a *AuthService) CompleteRequest(requestId, code string) error {
-	request, exists := a.Requests[requestId]
+func (a *AuthService) CompleteProviderRequest(requestId, code string) error {
+	request, exists := a.ProviderRequests[requestId]
 	if !exists {
 		return ErrAuthServiceRequestNotFound
 	}
 
 	if time.Now().After(request.Expires) {
-		request.Status = AuthRequestStatusExpired
+		request.Status = AuthProviderRequestStatusExpired
 		return ErrAuthServiceRequestExpired
 	}
 
-	if request.Status == AuthRequestStatusPending {
-		request.Status = AuthRequestStatusCompleted
+	if request.Status == AuthProviderRequestStatusPending {
+		request.Status = AuthProviderRequestStatusCompleted
 		request.OAuth2Code = code
 	}
 
 	return nil
 }
 
-func (a *AuthService) CheckRequestStatus(requestId, challenge string) (AuthRequestStatus, error) {
-	request, exists := a.Requests[requestId]
+func (a *AuthService) CheckProviderRequestStatus(requestId, challenge string) (AuthProviderRequestStatus, error) {
+	request, exists := a.ProviderRequests[requestId]
 	if !exists {
-		return AuthRequestStatusFailed, ErrAuthServiceRequestNotFound
+		return AuthProviderRequestStatusFailed, ErrAuthServiceRequestNotFound
 	}
 
 	if request.challenge != challenge {
-		return AuthRequestStatusFailed, ErrAuthServiceRequestNotFound
+		// TODO(patrik): Give this it's own error
+		return AuthProviderRequestStatusFailed, ErrAuthServiceRequestNotFound
 	}
 
 	now := time.Now()
 	if now.After(request.Expires) {
-		request.Status = AuthRequestStatusExpired
+		request.Status = AuthProviderRequestStatusExpired
 	}
 
 	return request.Status, nil
@@ -381,7 +405,7 @@ func (a *AuthService) CheckQuickConnectRequestStatus(requestCode, challenge stri
 }
 
 func (a *AuthService) CreateAuthTokenForProvider(requestId, challenge string) (string, error) {
-	request, exists := a.Requests[requestId]
+	request, exists := a.ProviderRequests[requestId]
 	if !exists {
 		return "", ErrAuthServiceRequestNotFound
 	}
@@ -390,10 +414,11 @@ func (a *AuthService) CreateAuthTokenForProvider(requestId, challenge string) (s
 		return "", ErrAuthServiceRequestNotFound
 	}
 
-	if request.Status != AuthRequestStatusCompleted {
+	if request.Status != AuthProviderRequestStatusCompleted {
 		return "", ErrAuthServiceRequestNotReady
 	}
 
+	// TODO(patrik): Check provider?
 	provider := a.providers[request.ProviderId]
 
 	code := request.OAuth2Code
@@ -407,7 +432,7 @@ func (a *AuthService) CreateAuthTokenForProvider(requestId, challenge string) (s
 		return "", ErrAuthServiceRequestInvalid
 	}
 
-	request.Status = AuthRequestStatusExpired
+	request.Status = AuthProviderRequestStatusExpired
 
 	// TODO(patrik): Check userId?
 	token, err := a.SignUserToken(userId)
@@ -452,8 +477,6 @@ func (a *AuthService) getUserFromCode(ctx context.Context, provider *AuthProvide
 	if err != nil {
 		return "", err
 	}
-
-	pretty.Println(oidcClaims)
 
 	getOrCreateUser := func() (string, error) {
 		user, err := a.db.GetUserByEmail(ctx, oidcClaims.Email)
@@ -530,51 +553,24 @@ func (a *AuthService) SignUserToken(userId string) (string, error) {
 
 func (a *AuthService) RemoveUnusedEntries() {
 	now := time.Now()
-	for k, request := range a.Requests {
+	for k, request := range a.ProviderRequests {
 		if now.After(request.Delete) {
-			delete(a.Requests, k)
+			delete(a.ProviderRequests, k)
 		}
 	}
 
 	for k, request := range a.QuickConnectRequests {
 		if now.After(request.delete) {
-			delete(a.Requests, k)
+			delete(a.QuickConnectRequests, k)
 		}
 	}
 }
 
-func (a *AuthService) RunRoutine() {
+// TODO(patrik): This should be a worker that the app creates when initializing
+func (a *AuthService) CleanRoutine() {
 	ticker := time.NewTicker(30 * time.Minute)
 	for range ticker.C {
-		slog.Info("AuthService: running auth cleanup")
+		slog.Info("auth-service: running cleanup")
 		a.RemoveUnusedEntries()
 	}
-}
-
-func (a *AuthService) Init(ctx context.Context, config *config.Config) error {
-	if a.initialized {
-		return nil
-	}
-
-	for id, provider := range config.OidcProviders {
-		res := &AuthProvider{
-			Id:          id,
-			DisplayName: provider.Name,
-		}
-
-		// TODO(patrik): Store the error on the provider and show
-		// that in the frontend
-		err := res.init(ctx, provider)
-		if err != nil {
-			return authErr.Errorf("failed to initialize AuthProvider(%s): %w", id, err)
-		}
-
-		a.providers[id] = res
-	}
-
-	go a.RunRoutine()
-
-	a.initialized = true
-
-	return nil
 }
