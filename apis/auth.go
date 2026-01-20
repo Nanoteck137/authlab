@@ -2,6 +2,7 @@ package apis
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"sort"
 	"time"
@@ -246,6 +247,7 @@ func InstallAuthHandlers(app core.App, group pyrin.Group) {
 
 				status, err := authService.CheckRequestStatus(body.RequestId, body.Challenge)
 				if err != nil {
+					fmt.Printf("err: %v\n", err)
 					if errors.Is(err, service.ErrAuthServiceRequestNotFound) {
 						// TODO(patrik): Better error
 						return nil, errors.New("request not found")

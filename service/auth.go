@@ -16,12 +16,47 @@ import (
 	"golang.org/x/oauth2"
 )
 
+type ServiceError struct {
+	Service string
+	Err     error
+}
+
+func (e *ServiceError) Error() string {
+	return fmt.Sprintf("%s: %s", e.Service, e.Err)
+}
+
+type ServiceErrCreator struct {
+	Service string
+}
+
+func NewServiceErrCreator(service string) ServiceErrCreator {
+	return ServiceErrCreator{
+		Service:    service,
+	}
+}
+
+func (s *ServiceErrCreator) Error(text string) error {
+	return &ServiceError{
+		Service: s.Service,
+		Err:     errors.New(text),
+	}
+}
+
+func (s *ServiceErrCreator) Errorf(format string, a ...any) error {
+	return &ServiceError{
+		Service: s.Service,
+		Err:     fmt.Errorf(format, a...),
+	}
+}
+
+var authErr = NewServiceErrCreator("auth-service") 
+
 var (
-	ErrAuthServiceRequestAlreadyExists = errors.New("AuthService: request already exists")
-	ErrAuthServiceRequestNotFound      = errors.New("AuthService: request not found")
-	ErrAuthServiceRequestExpired       = errors.New("AuthService: request is expired")
-	ErrAuthServiceRequestNotReady      = errors.New("AuthService: request is not ready")
-	ErrAuthServiceRequestInvalid       = errors.New("AuthService: request is invalid")
+	ErrAuthServiceRequestAlreadyExists = authErr.Error("request already exists")
+	ErrAuthServiceRequestNotFound      = authErr.Error("request not found")
+	ErrAuthServiceRequestExpired       = authErr.Error("request is expired")
+	ErrAuthServiceRequestNotReady      = authErr.Error("request is not ready")
+	ErrAuthServiceRequestInvalid       = authErr.Error("request is invalid")
 )
 
 const (
@@ -81,7 +116,7 @@ func (p *AuthProvider) init(ctx context.Context, config config.ConfigOidcProvide
 
 	p.provider, err = oidc.NewProvider(ctx, config.IssuerUrl)
 	if err != nil {
-		return fmt.Errorf("failed to create OIDC provider (%s): %w", p.Id, err)
+		return fmt.Errorf("oidc provider: %w", err)
 	}
 
 	p.oauth2Config = &oauth2.Config{
@@ -113,23 +148,13 @@ func (p *AuthProvider) claim(ctx context.Context, code string) (providerClaim, e
 
 	rawIDToken, ok := oauth2Token.Extra("id_token").(string)
 	if !ok {
-		return providerClaim{}, errors.New("failed to login")
+		return providerClaim{}, errors.New("oauth2 token is missing id_token")
 	}
 
 	idToken, err := p.verifier.Verify(ctx, rawIDToken)
 	if err != nil {
 		return providerClaim{}, err
 	}
-
-	// {
-	// 	var t map[string]any
-	// 	err = idToken.Claims(&t)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	//
-	// 	pretty.Println(t)
-	// }
 
 	var claims providerClaim
 	err = idToken.Claims(&claims)
@@ -140,7 +165,6 @@ func (p *AuthProvider) claim(ctx context.Context, code string) (providerClaim, e
 	return claims, nil
 }
 
-// TODO(patrik): Delete this when timer is out
 type AuthQuickConnectRequest struct {
 	// the status of the request
 	status AuthQuickRequestStatus
@@ -542,7 +566,7 @@ func (a *AuthService) Init(ctx context.Context, config *config.Config) error {
 		// that in the frontend
 		err := res.init(ctx, provider)
 		if err != nil {
-			return fmt.Errorf("AuthService: failed to initialize AuthProvider: %w", err)
+			return authErr.Errorf("failed to initialize AuthProvider(%s): %w", id, err)
 		}
 
 		a.providers[id] = res
