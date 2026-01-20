@@ -2,8 +2,6 @@ package service
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -17,53 +15,6 @@ import (
 	"github.com/nanoteck137/authlab/tools/utils"
 	"golang.org/x/oauth2"
 )
-
-// TODO(patrik): Move the generation code
-const (
-	letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	digits  = "0123456789"
-)
-
-func randomString(charset string, length int) (string, error) {
-	b := make([]byte, length)
-	_, err := rand.Read(b)
-	if err != nil {
-		return "", err
-	}
-
-	for i := range b {
-		b[i] = charset[int(b[i])%len(charset)]
-	}
-	return string(b), nil
-}
-
-func GenerateCode() (string, error) {
-	part1, err := randomString(letters, 4)
-	if err != nil {
-		return "", err
-	}
-
-	part2, err := randomString(digits, 4)
-	if err != nil {
-		return "", err
-	}
-
-	part3, err := randomString(letters, 4)
-	if err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf("%s-%s-%s", part1, part2, part3), nil
-}
-
-func GenerateAuthChallenge() (string, error) {
-	b := make([]byte, 64)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
-	}
-
-	return base64.RawURLEncoding.EncodeToString(b), nil
-}
 
 var (
 	ErrAuthServiceRequestAlreadyExists = errors.New("AuthService: request already exists")
@@ -253,7 +204,7 @@ func (a *AuthService) CreateNormalRequest(providerId string) (RequestResult, err
 		return RequestResult{}, errors.New("provider not found")
 	}
 
-	challenge, err := GenerateAuthChallenge()
+	challenge, err := utils.GenerateAuthChallenge()
 	if err != nil {
 		return RequestResult{}, fmt.Errorf("failed to generate challenge: %w", err)
 	}
@@ -298,12 +249,12 @@ type QuickConnectRequestResult struct {
 func (a *AuthService) CreateQuickConnectRequest() (QuickConnectRequestResult, error) {
 	// TODO(patrik): Add init check?
 
-	code, err := GenerateCode()
+	code, err := utils.GenerateCode()
 	if err != nil {
 		return QuickConnectRequestResult{}, fmt.Errorf("failed to generate code: %w", err)
 	}
 
-	challenge, err := GenerateAuthChallenge()
+	challenge, err := utils.GenerateAuthChallenge()
 	if err != nil {
 		return QuickConnectRequestResult{}, fmt.Errorf("failed to generate challenge: %w", err)
 	}

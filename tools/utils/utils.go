@@ -1,13 +1,13 @@
 package utils
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"log"
 	"math"
 	"os/exec"
-	"strconv"
 	"strings"
-	"unicode"
 
 	"github.com/gosimple/slug"
 	"github.com/nrednav/cuid2"
@@ -97,57 +97,48 @@ func TotalPages(perPage, totalItems int) int {
 	return int(math.Ceil(float64(totalItems) / float64(perPage)))
 }
 
-func ExtractNumber(s string) int {
-	n := ""
-	for _, c := range s {
-		if unicode.IsDigit(c) {
-			n += string(c)
-		} else {
-			break
-		}
-	}
+const (
+	letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	digits  = "0123456789"
+)
 
-	if len(n) == 0 {
-		return 0
-	}
-
-	i, err := strconv.ParseInt(n, 10, 64)
+func randomString(charset string, length int) (string, error) {
+	b := make([]byte, length)
+	_, err := rand.Read(b)
 	if err != nil {
-		return 0
+		return "", err
 	}
 
-	return int(i)
+	for i := range b {
+		b[i] = charset[int(b[i])%len(charset)]
+	}
+	return string(b), nil
 }
 
-var validImageExts = []string{
-	".png",
-	".jpg",
-	".jpeg",
-}
-
-func IsValidImageExt(ext string) bool {
-	for _, e := range validImageExts {
-		if ext == e {
-			return true
-		}
+func GenerateCode() (string, error) {
+	part1, err := randomString(letters, 4)
+	if err != nil {
+		return "", err
 	}
 
-	return false
-}
-
-// TODO(patrik): Update this
-var validExts []string = []string{
-	".wav",
-	".flac",
-	".opus",
-}
-
-func IsValidTrackExt(ext string) bool {
-	for _, valid := range validExts {
-		if valid == ext {
-			return true
-		}
+	part2, err := randomString(digits, 4)
+	if err != nil {
+		return "", err
 	}
 
-	return false
+	part3, err := randomString(letters, 4)
+	if err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("%s-%s-%s", part1, part2, part3), nil
+}
+
+func GenerateAuthChallenge() (string, error) {
+	b := make([]byte, 64)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+
+	return base64.RawURLEncoding.EncodeToString(b), nil
 }
