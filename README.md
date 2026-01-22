@@ -8,7 +8,7 @@
 - [x] add locking to the auth service
 - [ ] AuthService.getUserFromCode cleanup
 - [ ] Structure for services
-    - [ ] Error System to create errors for services
+    - [x] Error System to create errors for services
 - [ ] Pyrin
     - [x] support for unnamed routes
     - [x] support for SPA
