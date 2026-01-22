@@ -203,14 +203,22 @@ type AuthQuickConnectRequest struct {
 }
 
 type AuthService struct {
+	// The lock for the service, needs to be claimed when modifing request data
 	mu sync.Mutex
 
-	db        *database.Database
+	// Reference to the database
+	db *database.Database
+
+	// the jwt secret used to sign user tokens
 	jwtSecret string
 
+	// The available providers
 	providers map[string]*AuthProvider
 
-	ProviderRequests     map[string]*AuthProviderRequest
+	// All the provider based requests
+	ProviderRequests map[string]*AuthProviderRequest
+
+	// All the quick connect based requests
 	QuickConnectRequests map[string]*AuthQuickConnectRequest
 }
 
@@ -236,34 +244,51 @@ func NewAuthService(db *database.Database, config *config.Config) *AuthService {
 	}
 }
 
+// ProviderRequestResult is the structure returned by CreateProviderRequest
+// and contains some data about the newly created request
 type ProviderRequestResult struct {
+	// The Request Id
 	RequestId string
-	AuthUrl   string
+
+	// The Auth URL used to redirect/open window so that the user
+	// can authenticate with the provider
+	AuthUrl string
+
+	// The challenge code used to varify request calls
 	Challenge string
-	Expires   time.Time
+
+	// The timestamp when this request expires
+	Expires time.Time
 }
 
+// CreateProviderRequest creates a provider request and returns some
+// data about the request so that the user can complete the request
 func (a *AuthService) CreateProviderRequest(providerId string) (ProviderRequestResult, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
+	// Check for the provider
 	provider, exists := a.providers[providerId]
 	if !exists {
 		return ProviderRequestResult{}, ErrAuthServiceProviderNotFound
 	}
 
+	// Initialize the provider, this checks for if it's already initialized
 	err := provider.init(context.TODO())
 	if err != nil {
 		return ProviderRequestResult{}, authErr.Errorf("initialize AuthProvider(%s): %w", provider.Id, err)
 	}
 
+	// Generate the unique challenge used to check calls to requests
 	challenge, err := utils.GenerateAuthChallenge()
 	if err != nil {
 		return ProviderRequestResult{}, authErr.Errorf("generate auth challenge: %w", err)
 	}
 
+	// Create a unique id for the request
 	id := utils.CreateId()
 
+	// Create the request
 	t := time.Now()
 	request := &AuthProviderRequest{
 		Id:         id,
@@ -274,13 +299,17 @@ func (a *AuthService) CreateProviderRequest(providerId string) (ProviderRequestR
 		Delete:     t.Add(AuthProviderRequestDeletionDuration),
 	}
 
+	// Generate the OAuth2 URL so that the frontend can redirect/open window
+	// with this url
 	request.OAuth2Url = provider.oauth2Config.AuthCodeURL(request.Id)
 
+	// Check if the request id is already used
 	_, exists = a.ProviderRequests[id]
 	if exists {
 		return ProviderRequestResult{}, ErrAuthServiceRequestAlreadyExists
 	}
 
+	// Save the request
 	a.ProviderRequests[id] = request
 
 	return ProviderRequestResult{
@@ -291,23 +320,36 @@ func (a *AuthService) CreateProviderRequest(providerId string) (ProviderRequestR
 	}, nil
 }
 
+// QuickConnectRequestResult is the structure returned by
+// CreateQuickConnectRequest and contains some data about the newly
+// created request
 type QuickConnectRequestResult struct {
-	Code      string
+	// The Quick Connect code the user need to use for claiming
+	Code string
+
+	// The challenge code used to varify request calls
 	Challenge string
-	Expires   time.Time
+
+	// The timestamp when this request expires
+	Expires time.Time
 }
 
+// CreateQuickConnectRequest creates a quick connect request and returns some
+// data about the request so that the user can complete the request
 func (a *AuthService) CreateQuickConnectRequest() (QuickConnectRequestResult, error) {
+	// Generate the unique code for this quick connect request
 	code, err := utils.GenerateCode()
 	if err != nil {
 		return QuickConnectRequestResult{}, fmt.Errorf("failed to generate code: %w", err)
 	}
 
+	// Generate the unique challenge used to check calls to requests
 	challenge, err := utils.GenerateAuthChallenge()
 	if err != nil {
 		return QuickConnectRequestResult{}, fmt.Errorf("failed to generate challenge: %w", err)
 	}
 
+	// Create the request
 	t := time.Now()
 	request := &AuthQuickConnectRequest{
 		status:    AuthQuickRequestStatusPending,
@@ -320,11 +362,13 @@ func (a *AuthService) CreateQuickConnectRequest() (QuickConnectRequestResult, er
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
+	// Check if the code is already used
 	_, exists := a.QuickConnectRequests[code]
 	if exists {
 		return QuickConnectRequestResult{}, err
 	}
 
+	// Save the request
 	a.QuickConnectRequests[code] = request
 
 	return QuickConnectRequestResult{
@@ -334,20 +378,27 @@ func (a *AuthService) CreateQuickConnectRequest() (QuickConnectRequestResult, er
 	}, nil
 }
 
+// CompleteProviderRequest this is called after a user claims this
+// quick connect request after this we then can create the user token with
+// a call to CreateAuthTokenForQuickConnect
 func (a *AuthService) CompleteQuickConnectRequest(requestCode, userId string) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
+	// Get the request
 	request, exists := a.QuickConnectRequests[requestCode]
 	if !exists {
 		return ErrAuthServiceRequestNotFound
 	}
 
+	// Check if the request is expired and update the status
 	if time.Now().After(request.expires) {
 		request.status = AuthQuickRequestStatusExpired
 		return ErrAuthServiceRequestExpired
 	}
 
+	// Check if the request is pending and update the status +
+	// save the userId
 	if request.status == AuthQuickRequestStatusPending {
 		request.status = AuthQuickRequestStatusCompleted
 		request.userId = userId
@@ -356,20 +407,29 @@ func (a *AuthService) CompleteQuickConnectRequest(requestCode, userId string) er
 	return nil
 }
 
+// CompleteProviderRequest this is called after we get the code from
+// the OAuth2 provider and with the code we now can set the request status
+// to completed and later call CreateAuthTokenForProvider to
+// generate the user token
 func (a *AuthService) CompleteProviderRequest(requestId, code string) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
+	// Get the request
 	request, exists := a.ProviderRequests[requestId]
 	if !exists {
 		return ErrAuthServiceRequestNotFound
 	}
 
+	// Check if the request is expired and update the request status
+	// if it is expired
 	if time.Now().After(request.Expires) {
 		request.Status = AuthProviderRequestStatusExpired
 		return ErrAuthServiceRequestExpired
 	}
 
+	// Check for if the request status is pending and then set the status to
+	// completed and saves the code for later use
 	if request.Status == AuthProviderRequestStatusPending {
 		request.Status = AuthProviderRequestStatusCompleted
 		request.OAuth2Code = code
@@ -378,20 +438,26 @@ func (a *AuthService) CompleteProviderRequest(requestId, code string) error {
 	return nil
 }
 
+// CheckProviderRequestStatus checks the request for if it's expired
+// and then returns the current status of the request
 func (a *AuthService) CheckProviderRequestStatus(requestId, challenge string) (AuthProviderRequestStatus, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
+	// Get the request
 	request, exists := a.ProviderRequests[requestId]
 	if !exists {
 		return AuthProviderRequestStatusFailed, ErrAuthServiceRequestNotFound
 	}
 
+	// Test the challenge
 	if request.challenge != challenge {
 		// TODO(patrik): Give this it's own error
 		return AuthProviderRequestStatusFailed, ErrAuthServiceRequestNotFound
 	}
 
+	// Check if the request is expired, and if it is set the request
+	// status to expired
 	now := time.Now()
 	if now.After(request.Expires) {
 		request.Status = AuthProviderRequestStatusExpired
@@ -400,19 +466,25 @@ func (a *AuthService) CheckProviderRequestStatus(requestId, challenge string) (A
 	return request.Status, nil
 }
 
+// CheckQuickConnectRequestStatus checks the request for if it's expired
+// and then returns the current status of the request
 func (a *AuthService) CheckQuickConnectRequestStatus(requestCode, challenge string) (AuthQuickRequestStatus, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
+	// Get the request
 	request, exists := a.QuickConnectRequests[requestCode]
 	if !exists {
 		return AuthQuickRequestStatusFailed, ErrAuthServiceRequestNotFound
 	}
 
+	// Test the challenge
 	if request.challenge != challenge {
 		return AuthQuickRequestStatusFailed, ErrAuthServiceRequestNotFound
 	}
 
+	// Check if the request is expired, and if it is set the request
+	// status to expired
 	now := time.Now()
 	if now.After(request.expires) {
 		request.status = AuthQuickRequestStatusExpired
@@ -421,70 +493,112 @@ func (a *AuthService) CheckQuickConnectRequestStatus(requestCode, challenge stri
 	return request.status, nil
 }
 
+// CreateAuthTokenForProvider create a user JWT token if the quick connect
+// request is complete, otherwise return error
+//
+// Thread-safe: locks the service
 func (a *AuthService) CreateAuthTokenForProvider(requestId, challenge string) (string, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
+	// Get the request
 	request, exists := a.ProviderRequests[requestId]
 	if !exists {
 		return "", ErrAuthServiceRequestNotFound
 	}
 
+	// Test the challenge
 	if request.challenge != challenge {
 		return "", ErrAuthServiceRequestNotFound
 	}
 
+	// Check the request status for completed
 	if request.Status != AuthProviderRequestStatusCompleted {
 		return "", ErrAuthServiceRequestNotReady
 	}
 
 	// TODO(patrik): Check provider?
+	// Get the provider from the request
 	provider := a.providers[request.ProviderId]
 
-	code := request.OAuth2Code
-
-	userId, err := a.getUserFromCode(context.TODO(), provider, code)
-	if err != nil {
-		return "", err
-	}
-
-	if userId == "" {
+	// Check if the OAuth2Code is set, this should be set after the
+	// OAuth2 callback
+	if request.OAuth2Code == "" {
+		// Set the request status to failed, because we have
+		// encountered an error with the OAuth2 code
+		request.Status = AuthProviderRequestStatusFailed
 		return "", ErrAuthServiceRequestInvalid
 	}
 
+	// Get the user id from the OAuth2 Code that is stored in the request
+	// after the provider completes the OAuth2 request
+	userId, err := a.getUserFromCode(context.TODO(), provider, request.OAuth2Code)
+	if err != nil {
+		// Set the request status to failed, because we have
+		// encountered an error with getting the user from the provider
+		request.Status = AuthProviderRequestStatusFailed
+		return "", err
+	}
+
+	// Check the user id just to be sure, this is not 100% necessary
+	// because the SignUserToken should check if the user is already
+	// in the database
+	if userId == "" {
+		// Set the request status to failed, because we have
+		// encountered an error with getting the user from the provider
+		request.Status = AuthProviderRequestStatusFailed
+		return "", ErrAuthServiceRequestInvalid
+	}
+
+	// Set the request status to be expired so that we can't generate
+	// the token after this
 	request.Status = AuthProviderRequestStatusExpired
 
+	// Create the JWT token for the user
 	token, err := a.SignUserToken(userId)
 	if err != nil {
+		request.Status = AuthProviderRequestStatusFailed
 		return "", err
 	}
 
 	return token, nil
 }
 
+// CreateAuthTokenForQuickConnect create a user JWT token if the quick connect
+// request is complete, otherwise return error
+//
+// Thread-safe: locks the service
 func (a *AuthService) CreateAuthTokenForQuickConnect(requestCode, challenge string) (string, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
+	// Get the request
 	request, exists := a.QuickConnectRequests[requestCode]
 	if !exists {
 		return "", ErrAuthServiceRequestNotFound
 	}
 
+	// Test the challenge
 	if request.challenge != challenge {
 		return "", ErrAuthServiceRequestNotFound
 	}
 
+	// Check the request status for completed
 	if request.status != AuthQuickRequestStatusCompleted {
 		return "", ErrAuthServiceRequestInvalid
 	}
 
+	// Check if the userId is set because if the request is completed then
+	// this should be set after a user claims this request
 	if request.userId == "" {
 		return "", ErrAuthServiceRequestInvalid
 	}
 
+	// Set the request status to be expired so that we can't generate
+	// the token after this
 	request.status = AuthQuickRequestStatusExpired
 
+	// Create the JWT token for the user
 	token, err := a.SignUserToken(request.userId)
 	if err != nil {
 		return "", err
@@ -493,97 +607,120 @@ func (a *AuthService) CreateAuthTokenForQuickConnect(requestCode, challenge stri
 	return token, nil
 }
 
+// getUserFromCode tries to returns the user id after claiming the OAuth2 code
 func (a *AuthService) getUserFromCode(ctx context.Context, provider *AuthProvider, code string) (string, error) {
 	oidcClaims, err := provider.claim(ctx, code)
 	if err != nil {
-		return "", err
+		return "", authErr.Errorf("provider claim: %w", err)
 	}
 
+	// Helper function to get/create the user
 	getOrCreateUser := func() (string, error) {
+		// Check if the user with the email already exists
 		user, err := a.db.GetUserByEmail(ctx, oidcClaims.Email)
-		if err != nil {
-			if errors.Is(err, database.ErrItemNotFound) {
-				displayName := oidcClaims.DisplayName
-				if displayName == "" {
-					displayName = oidcClaims.Name
-				}
-
-				user, err = a.db.CreateUser(ctx, database.CreateUserParams{
-					Email:       oidcClaims.Email,
-					DisplayName: displayName,
-					Role:        "user",
-				})
-				if err != nil {
-					return "", err
-				}
-
-				return user.Id, nil
-			} else {
-				return "", err
-			}
+		// If the user exists, just return that user id
+		if err == nil {
+			return user.Id, nil
 		}
 
-		return user.Id, nil
+		// If the user doesn't exist we need to create a new user using
+		// the oidcClaims
+		if errors.Is(err, database.ErrItemNotFound) {
+			// Try getting a display name for the user
+			displayName := oidcClaims.DisplayName
+			// If the provider doesn't provide the display name then just
+			// use the name field
+			if displayName == "" {
+				displayName = oidcClaims.Name
+			}
+
+			// Create the database entry for the user
+			user, err = a.db.CreateUser(ctx, database.CreateUserParams{
+				Email:       oidcClaims.Email,
+				DisplayName: displayName,
+				Role:        "user",
+			})
+			if err != nil {
+				return "", authErr.Errorf("create user: %w", err)
+			}
+
+			return user.Id, nil
+		} else {
+			return "", authErr.Errorf("get user by email: %w", err)
+		}
 	}
 
 	identity, err := a.db.GetUserIdentity(ctx, provider.Id, oidcClaims.Sub)
-	if err != nil {
-		if errors.Is(err, database.ErrItemNotFound) {
-			userId, err := getOrCreateUser()
-			if err != nil {
-				return "", err
-			}
+	// If no error, just return the user id
+	if err == nil {
+		return identity.UserId, nil
+	}
 
-			err = a.db.CreateUserIdentity(ctx, database.CreateUserIdentityParams{
-				Provider:   provider.Id,
-				ProviderId: oidcClaims.Sub,
-				UserId:     userId,
-			})
-			if err != nil {
-				return "", err
-			}
-
-			return userId, nil
-		} else {
+	// Check for if the error is ErrItemNotFound, if it
+	// is then create the identity entry
+	if errors.Is(err, database.ErrItemNotFound) {
+		// Try to get/create the user
+		userId, err := getOrCreateUser()
+		if err != nil {
 			return "", err
 		}
-	}
 
-	return identity.UserId, nil
+		// Then create the user identity entry
+		err = a.db.CreateUserIdentity(ctx, database.CreateUserIdentityParams{
+			Provider:   provider.Id,
+			ProviderId: oidcClaims.Sub,
+			UserId:     userId,
+		})
+		if err != nil {
+			return "", authErr.Errorf("create user identity: %w", err)
+		}
+
+		return userId, nil
+	} else {
+		return "", authErr.Errorf("get user identity: %w", err)
+	}
 }
 
+// SignUserToken generates a JWT token for the giving user id.
+// Returns the JWT token or error if the user doesn't exist or signing fails.
 func (a *AuthService) SignUserToken(userId string) (string, error) {
-	// TODO(patrik): Errors
+	// Check if the user with the id exists in the database
 	user, err := a.db.GetUserById(context.Background(), userId)
 	if err != nil {
-		return "", err
+		return "", authErr.Errorf("signing token: get user by id: %w", err)
 	}
 
+	// Create jwt token with the for the user
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"userId": user.Id,
 		"iat":    time.Now().Unix(),
 		// "exp":    time.Now().Add(1000 * time.Second).Unix(),
 	})
 
+	// Sign the newly created token
 	tokenString, err := token.SignedString(([]byte)(a.jwtSecret))
 	if err != nil {
-		return "", err
+		return "", authErr.Errorf("signing token: jwt sign: %w", err)
 	}
 
 	return tokenString, nil
 }
 
+// RemoveUnusedEntries performs cleanup on expired auth requests
 func (a *AuthService) RemoveUnusedEntries() {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
 	now := time.Now()
+
+	// Remove expired provider OAuth2 requests
 	for k, request := range a.ProviderRequests {
 		if now.After(request.Delete) {
 			delete(a.ProviderRequests, k)
 		}
 	}
 
+	// Remove expired quick connect requests
 	for k, request := range a.QuickConnectRequests {
 		if now.After(request.delete) {
 			delete(a.QuickConnectRequests, k)
