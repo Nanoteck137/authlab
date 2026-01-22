@@ -62,11 +62,11 @@ var (
 )
 
 const (
-	AuthProviderRequestExpireDuration   = 5 * time.Minute
-	AuthProviderRequestDeletionDuration = AuthProviderRequestExpireDuration + 10*time.Minute
+	authProviderRequestExpireDuration   = 5 * time.Minute
+	authProviderRequestDeletionDuration = authProviderRequestExpireDuration + 10*time.Minute
 
-	AuthQuickRequestExpireDuration   = 5 * time.Minute
-	AuthQuickRequestDeletionDuration = AuthQuickRequestExpireDuration + 10*time.Minute
+	authQuickRequestExpireDuration   = 5 * time.Minute
+	authQuickRequestDeletionDuration = authQuickRequestExpireDuration + 10*time.Minute
 )
 
 type AuthProviderRequestStatus string
@@ -87,38 +87,61 @@ const (
 	AuthQuickRequestStatusFailed    AuthQuickRequestStatus = "failed"
 )
 
-// TODO(patrik): Change the fields to private
-type AuthProviderRequest struct {
-	Id         string
-	ProviderId string
+// authProviderRequest holds the infomation for a provider auth request
+type authProviderRequest struct {
+	// Unique id of this request
+	id         string
 
-	Status AuthProviderRequestStatus
+	// Id of the provider this request belongs to
+	providerId string
 
+	// Status of the request
+	status AuthProviderRequestStatus
+
+	// Challenge code used to check when trying to do something with 
+	// the request
 	challenge string
 
-	OAuth2Url  string
-	OAuth2Code string
+	// The generated provider url saved for later use
+	oauth2Url  string
 
-	QuickCode string
+	// The code the provider sends back inside the callback, this should be 
+	// set when status is completed and then we can generate the user 
+	// token based on the code
+	oauth2Code string
 
-	Expires time.Time
-	Delete  time.Time
+	// The timestamp for when this request is invalid
+	expires time.Time
+
+	// The timestamp for when this request can be deleted
+	delete time.Time
 }
 
-type AuthProvider struct {
+// authProvider hold infomation about the OAuth2/OIDC provider
+type authProvider struct {
+	// If the provider has been initialized
 	initialized bool
 
-	Id          string
-	DisplayName string
+	// The id of the provider
+	id          string
 
+	// A display name for showing in the frontend
+	displayName string
+
+	// The config object that holds infomation used by the provider
 	config config.ConfigOidcProvider
 
+	// The OIDC provider object
 	provider     *oidc.Provider
+
+	// The OAuth2 config object
 	oauth2Config *oauth2.Config
+
+	// The OIDC token verifier
 	verifier     *oidc.IDTokenVerifier
 }
 
-func (p *AuthProvider) init(ctx context.Context) error {
+func (p *authProvider) init(ctx context.Context) error {
 	if p.initialized {
 		return nil
 	}
@@ -153,7 +176,7 @@ type providerClaim struct {
 	Sub         string `json:"sub"`
 }
 
-func (p *AuthProvider) claim(ctx context.Context, code string) (providerClaim, error) {
+func (p *authProvider) claim(ctx context.Context, code string) (providerClaim, error) {
 	oauth2Token, err := p.oauth2Config.Exchange(ctx, code)
 	if err != nil {
 		return providerClaim{}, err
@@ -178,7 +201,7 @@ func (p *AuthProvider) claim(ctx context.Context, code string) (providerClaim, e
 	return claims, nil
 }
 
-type AuthQuickConnectRequest struct {
+type authQuickConnectRequest struct {
 	// the status of the request
 	status AuthQuickRequestStatus
 
@@ -191,7 +214,7 @@ type AuthQuickConnectRequest struct {
 	// create the JWT token
 	challenge string
 
-	// This is set then status == completed, and is the userId of
+	// This is set when status is completed, and is the userId of
 	// the user that authorized the request
 	userId string
 
@@ -213,22 +236,22 @@ type AuthService struct {
 	jwtSecret string
 
 	// The available providers
-	providers map[string]*AuthProvider
+	providers map[string]*authProvider
 
 	// All the provider based requests
-	ProviderRequests map[string]*AuthProviderRequest
+	ProviderRequests map[string]*authProviderRequest
 
 	// All the quick connect based requests
-	QuickConnectRequests map[string]*AuthQuickConnectRequest
+	QuickConnectRequests map[string]*authQuickConnectRequest
 }
 
 func NewAuthService(db *database.Database, config *config.Config) *AuthService {
-	providers := make(map[string]*AuthProvider, len(config.OidcProviders))
+	providers := make(map[string]*authProvider, len(config.OidcProviders))
 
 	for id, providerConfig := range config.OidcProviders {
-		res := &AuthProvider{
-			Id:          id,
-			DisplayName: providerConfig.Name,
+		res := &authProvider{
+			id:          id,
+			displayName: providerConfig.Name,
 			config:      providerConfig,
 		}
 
@@ -239,8 +262,8 @@ func NewAuthService(db *database.Database, config *config.Config) *AuthService {
 		db:                   db,
 		jwtSecret:            config.JwtSecret,
 		providers:            providers,
-		ProviderRequests:     make(map[string]*AuthProviderRequest),
-		QuickConnectRequests: make(map[string]*AuthQuickConnectRequest),
+		ProviderRequests:     make(map[string]*authProviderRequest),
+		QuickConnectRequests: make(map[string]*authQuickConnectRequest),
 	}
 }
 
@@ -276,7 +299,7 @@ func (a *AuthService) CreateProviderRequest(providerId string) (ProviderRequestR
 	// Initialize the provider, this checks for if it's already initialized
 	err := provider.init(context.TODO())
 	if err != nil {
-		return ProviderRequestResult{}, authErr.Errorf("initialize AuthProvider(%s): %w", provider.Id, err)
+		return ProviderRequestResult{}, authErr.Errorf("initialize AuthProvider(%s): %w", provider.id, err)
 	}
 
 	// Generate the unique challenge used to check calls to requests
@@ -290,18 +313,18 @@ func (a *AuthService) CreateProviderRequest(providerId string) (ProviderRequestR
 
 	// Create the request
 	t := time.Now()
-	request := &AuthProviderRequest{
-		Id:         id,
-		ProviderId: provider.Id,
-		Status:     AuthProviderRequestStatusPending,
+	request := &authProviderRequest{
+		id:         id,
+		providerId: provider.id,
+		status:     AuthProviderRequestStatusPending,
 		challenge:  challenge,
-		Expires:    t.Add(AuthProviderRequestExpireDuration),
-		Delete:     t.Add(AuthProviderRequestDeletionDuration),
+		expires:    t.Add(authProviderRequestExpireDuration),
+		delete:     t.Add(authProviderRequestDeletionDuration),
 	}
 
 	// Generate the OAuth2 URL so that the frontend can redirect/open window
 	// with this url
-	request.OAuth2Url = provider.oauth2Config.AuthCodeURL(request.Id)
+	request.oauth2Url = provider.oauth2Config.AuthCodeURL(request.id)
 
 	// Check if the request id is already used
 	_, exists = a.ProviderRequests[id]
@@ -313,10 +336,10 @@ func (a *AuthService) CreateProviderRequest(providerId string) (ProviderRequestR
 	a.ProviderRequests[id] = request
 
 	return ProviderRequestResult{
-		RequestId: request.Id,
-		AuthUrl:   request.OAuth2Url,
+		RequestId: request.id,
+		AuthUrl:   request.oauth2Url,
 		Challenge: request.challenge,
-		Expires:   request.Expires,
+		Expires:   request.expires,
 	}, nil
 }
 
@@ -351,12 +374,12 @@ func (a *AuthService) CreateQuickConnectRequest() (QuickConnectRequestResult, er
 
 	// Create the request
 	t := time.Now()
-	request := &AuthQuickConnectRequest{
+	request := &authQuickConnectRequest{
 		status:    AuthQuickRequestStatusPending,
 		code:      code,
 		challenge: challenge,
-		expires:   t.Add(AuthQuickRequestExpireDuration),
-		delete:    t.Add(AuthQuickRequestDeletionDuration),
+		expires:   t.Add(authQuickRequestExpireDuration),
+		delete:    t.Add(authQuickRequestDeletionDuration),
 	}
 
 	a.mu.Lock()
@@ -423,16 +446,16 @@ func (a *AuthService) CompleteProviderRequest(requestId, code string) error {
 
 	// Check if the request is expired and update the request status
 	// if it is expired
-	if time.Now().After(request.Expires) {
-		request.Status = AuthProviderRequestStatusExpired
+	if time.Now().After(request.expires) {
+		request.status = AuthProviderRequestStatusExpired
 		return ErrAuthServiceRequestExpired
 	}
 
 	// Check for if the request status is pending and then set the status to
 	// completed and saves the code for later use
-	if request.Status == AuthProviderRequestStatusPending {
-		request.Status = AuthProviderRequestStatusCompleted
-		request.OAuth2Code = code
+	if request.status == AuthProviderRequestStatusPending {
+		request.status = AuthProviderRequestStatusCompleted
+		request.oauth2Code = code
 	}
 
 	return nil
@@ -459,11 +482,11 @@ func (a *AuthService) CheckProviderRequestStatus(requestId, challenge string) (A
 	// Check if the request is expired, and if it is set the request
 	// status to expired
 	now := time.Now()
-	if now.After(request.Expires) {
-		request.Status = AuthProviderRequestStatusExpired
+	if now.After(request.expires) {
+		request.status = AuthProviderRequestStatusExpired
 	}
 
-	return request.Status, nil
+	return request.status, nil
 }
 
 // CheckQuickConnectRequestStatus checks the request for if it's expired
@@ -513,30 +536,30 @@ func (a *AuthService) CreateAuthTokenForProvider(requestId, challenge string) (s
 	}
 
 	// Check the request status for completed
-	if request.Status != AuthProviderRequestStatusCompleted {
+	if request.status != AuthProviderRequestStatusCompleted {
 		return "", ErrAuthServiceRequestNotReady
 	}
 
 	// TODO(patrik): Check provider?
 	// Get the provider from the request
-	provider := a.providers[request.ProviderId]
+	provider := a.providers[request.providerId]
 
 	// Check if the OAuth2Code is set, this should be set after the
 	// OAuth2 callback
-	if request.OAuth2Code == "" {
+	if request.oauth2Code == "" {
 		// Set the request status to failed, because we have
 		// encountered an error with the OAuth2 code
-		request.Status = AuthProviderRequestStatusFailed
+		request.status = AuthProviderRequestStatusFailed
 		return "", ErrAuthServiceRequestInvalid
 	}
 
 	// Get the user id from the OAuth2 Code that is stored in the request
 	// after the provider completes the OAuth2 request
-	userId, err := a.getUserFromCode(context.TODO(), provider, request.OAuth2Code)
+	userId, err := a.getUserFromCode(context.TODO(), provider, request.oauth2Code)
 	if err != nil {
 		// Set the request status to failed, because we have
 		// encountered an error with getting the user from the provider
-		request.Status = AuthProviderRequestStatusFailed
+		request.status = AuthProviderRequestStatusFailed
 		return "", err
 	}
 
@@ -546,18 +569,18 @@ func (a *AuthService) CreateAuthTokenForProvider(requestId, challenge string) (s
 	if userId == "" {
 		// Set the request status to failed, because we have
 		// encountered an error with getting the user from the provider
-		request.Status = AuthProviderRequestStatusFailed
+		request.status = AuthProviderRequestStatusFailed
 		return "", ErrAuthServiceRequestInvalid
 	}
 
 	// Set the request status to be expired so that we can't generate
 	// the token after this
-	request.Status = AuthProviderRequestStatusExpired
+	request.status = AuthProviderRequestStatusExpired
 
 	// Create the JWT token for the user
 	token, err := a.SignUserToken(userId)
 	if err != nil {
-		request.Status = AuthProviderRequestStatusFailed
+		request.status = AuthProviderRequestStatusFailed
 		return "", err
 	}
 
@@ -608,7 +631,7 @@ func (a *AuthService) CreateAuthTokenForQuickConnect(requestCode, challenge stri
 }
 
 // getUserFromCode tries to returns the user id after claiming the OAuth2 code
-func (a *AuthService) getUserFromCode(ctx context.Context, provider *AuthProvider, code string) (string, error) {
+func (a *AuthService) getUserFromCode(ctx context.Context, provider *authProvider, code string) (string, error) {
 	oidcClaims, err := provider.claim(ctx, code)
 	if err != nil {
 		return "", authErr.Errorf("provider claim: %w", err)
@@ -650,7 +673,7 @@ func (a *AuthService) getUserFromCode(ctx context.Context, provider *AuthProvide
 		}
 	}
 
-	identity, err := a.db.GetUserIdentity(ctx, provider.Id, oidcClaims.Sub)
+	identity, err := a.db.GetUserIdentity(ctx, provider.id, oidcClaims.Sub)
 	// If no error, just return the user id
 	if err == nil {
 		return identity.UserId, nil
@@ -667,7 +690,7 @@ func (a *AuthService) getUserFromCode(ctx context.Context, provider *AuthProvide
 
 		// Then create the user identity entry
 		err = a.db.CreateUserIdentity(ctx, database.CreateUserIdentityParams{
-			Provider:   provider.Id,
+			Provider:   provider.id,
 			ProviderId: oidcClaims.Sub,
 			UserId:     userId,
 		})
@@ -715,7 +738,7 @@ func (a *AuthService) RemoveUnusedEntries() {
 
 	// Remove expired provider OAuth2 requests
 	for k, request := range a.ProviderRequests {
-		if now.After(request.Delete) {
+		if now.After(request.delete) {
 			delete(a.ProviderRequests, k)
 		}
 	}
